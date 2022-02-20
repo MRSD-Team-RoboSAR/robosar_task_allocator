@@ -2,25 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from Robot import Robot
 from Environment import Environment
-
-def simulation(dt, max_steps):
-    t_step = 0
-    t = 0
-    env.visited.add(0)
-    for id in range(len(env.robots)):
-        env.assign(id)
-    while len(env.visited) < env.num_nodes and t_step < max_steps:
-        env.move(dt)
-
-        plt.plot(env.robots[0].pos[0], env.robots[0].pos[1], 'ro')
-        plt.plot(env.robots[1].pos[0], env.robots[1].pos[1], 'bo')
-        plt.plot(env.robots[2].pos[0], env.robots[2].pos[1], 'go')
-        plt.plot(env.robots[3].pos[0], env.robots[3].pos[1], 'mo')
-        plt.pause(0.005)
-
-        t += dt
-        t_step += 1
-    print("Finished at t = {}".format(t))
+from Simulation import Simulation
 
 if __name__ == '__main__':
     n = 10
@@ -42,6 +24,7 @@ if __name__ == '__main__':
     plt.plot(robot2.pos[0], robot2.pos[1], 'go')
     plt.plot(robot3.pos[0], robot3.pos[1], 'mo')
 
-    simulation(0.1, 1000)
+    sim = Simulation(env, 0.1, 1000)
+    sim.simulate()
 
     plt.show()
