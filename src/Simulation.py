@@ -1,6 +1,8 @@
-from Environment import Environment
 import numpy as np
 import matplotlib.pyplot as plt
+import gurobipy as gp
+from gurobipy import GRB
+from itertools import combinations
 
 class Simulation:
     def __init__(self, env, dt, max_steps):
@@ -14,7 +16,7 @@ class Simulation:
     def simulate(self):
         self.env.visited.add(0)
         for id in range(len(self.env.robots)):
-            self.assign(id)
+            self.assign(id, self.env.robots[id].prev)
         while len(self.env.visited) < self.env.num_nodes and self.t_step < self.max_steps:
             self.move()
 
@@ -26,23 +28,25 @@ class Simulation:
 
             self.t += self.dt
             self.t_step += 1
-        print("Finished at t = {}".format(self.t))
 
-    def assign(self, id):
-        r = self.env.robots[id]
-        idx = []
-        C = []
+        robot_paths = []
+        for robot in self.env.robots:
+            robot_paths.append(robot.visited)
+        print("Finished at t = {}".format(self.t))
+        return robot_paths
+
+    def assign(self, id, curr_node):
+        C = self.env.adj[curr_node,:]
         robot = self.env.robots[id]
-        for i, node in enumerate(self.env.nodes):
+        min_node_list = np.argsort(C)
+        min_node = -1
+        for i in min_node_list:
             if i not in self.env.visited and i not in self.env.frontier:
-                idx.append(i)
-                C.append(np.sqrt((node[0]-robot.pos[0])**2 + (node[1]-robot.pos[1])**2))
-        if C:
-            min_node = np.argmin(np.array(C))
-            min_node_i = idx[min_node]
-            print("Assigned robot {}: node {} at {}".format(id, min_node_i, self.env.nodes[min_node_i]))
-            robot.next = min_node_i
-            self.env.frontier.add(min_node_i)
+                min_node = i
+                break
+        print("Assigned robot {}: node {} at {}".format(id, min_node, self.env.nodes[min_node]))
+        robot.next = min_node
+        self.env.frontier.add(min_node)
 
     def reached(self, id, curr_node):
         r = self.env.robots[id]
@@ -53,7 +57,7 @@ class Simulation:
             self.env.visited.add(curr_node)
             print("Robot {} reached node {}".format(id, curr_node))
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
-                self.assign(id)
+                self.assign(id, curr_node)
 
     def move(self):
         for id, r in enumerate(self.env.robots):
