@@ -3,7 +3,7 @@ class Robot:
 
     def __init__(self, id, start, prev):
         self.id = id
-        self.v = 1
+        self.v = 10
         self.pos = start
         self.next = -1
         self.prev = prev

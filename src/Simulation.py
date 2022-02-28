@@ -22,8 +22,6 @@ class Simulation:
 
             plt.plot(self.env.robots[0].pos[0], self.env.robots[0].pos[1], 'ro')
             plt.plot(self.env.robots[1].pos[0], self.env.robots[1].pos[1], 'bo')
-            plt.plot(self.env.robots[2].pos[0], self.env.robots[2].pos[1], 'go')
-            plt.plot(self.env.robots[3].pos[0], self.env.robots[3].pos[1], 'mo')
             plt.pause(0.005)
 
             self.t += self.dt

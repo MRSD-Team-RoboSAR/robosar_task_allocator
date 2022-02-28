@@ -1,11 +1,12 @@
 from tracemalloc import start
-from gridmap import OccupancyGridMap
+from .gridmap import OccupancyGridMap
 import matplotlib.pyplot as plt
-from a_star import a_star
-from utils import plot_path
+from .a_star import a_star
+from .utils import plot_path
 import os
 from PIL import Image, ImageOps
 import numpy as np
+
 def define_point(node,gmap):
     node = gmap.get_index_from_coordinates(node[0], node[1])
     if gmap.is_occupied_idx(node):
@@ -16,6 +17,7 @@ def define_point(node,gmap):
         define_point(node,gmap)
     else:
         return node
+
 def createGraph(n, nodes,gmap):
     adj = np.zeros((n, n))
     nodes = np.array(nodes)
@@ -29,7 +31,7 @@ def createGraph(n, nodes,gmap):
 
             if path:
                 # plot resulting path in pixels over the map
-                plot_path(path_px)
+                # plot_path(path_px)
                 print("hi")
             else:
                 print('Goal is not reachable')
@@ -38,11 +40,12 @@ def createGraph(n, nodes,gmap):
                 start_node_px = gmap.get_index_from_coordinates(nodes[i][0], nodes[i][1])
                 goal_node_px = gmap.get_index_from_coordinates(nodes[j][0], nodes[j][1])
 
-                plt.plot(start_node_px[0], start_node_px[1], 'ro')
-                plt.plot(goal_node_px[0], goal_node_px[1], 'go')
+                # plt.plot(start_node_px[0], start_node_px[1], 'ro')
+                # plt.plot(goal_node_px[0], goal_node_px[1], 'go')
 
-    plt.show()
+    # plt.show()
     return adj
+
 def set_of_nodes(gmap,num_nodes):
     start_node = np.zeros([num_nodes,2])
     start_node[0,:] = [65.0,40.0]
