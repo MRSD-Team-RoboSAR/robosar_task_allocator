@@ -71,7 +71,10 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
         raise ValueError('Unknown movement')
 
     # while there are elements to investigate in our front.
+    iter = 0
     while front:
+        if iter == 1000:
+            break
         # get smallest item and remove from front.
         element = heappop(front)
 
@@ -109,7 +112,7 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
                 new_total_cost_to_goal = new_cost + dist2d(new_pos, goal) + potential_function_cost
 
                 heappush(front, (new_total_cost_to_goal, new_cost, new_pos, pos))
-
+    iter = 0
     # reconstruct path backwards (only if we reached the goal)
     path = []
     path_idx = []
