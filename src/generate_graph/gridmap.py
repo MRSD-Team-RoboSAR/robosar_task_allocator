@@ -1,6 +1,6 @@
 import numpy
 import matplotlib.pyplot as plt
-from .utils import png_to_ogm
+from utils import png_to_ogm
 
 
 class OccupancyGridMap:

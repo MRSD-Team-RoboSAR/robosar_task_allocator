@@ -1,6 +1,6 @@
 import math
 from heapq import heappush, heappop
-from .utils import dist2d
+from utils import dist2d
 
 
 def _get_movements_4n():

@@ -1,8 +1,8 @@
 from tracemalloc import start
-from .gridmap import OccupancyGridMap
+from gridmap import OccupancyGridMap
 import matplotlib.pyplot as plt
-from .a_star import a_star
-from .utils import plot_path
+from a_star import a_star
+from utils import plot_path
 import os
 from PIL import Image, ImageOps
 import numpy as np
@@ -34,7 +34,7 @@ def createGraph(n, nodes,gmap):
                 # plot_path(path_px)
                 print("hi")
             else:
-                print('Goal is not reachable')
+                adj[i,j] = -10
 
                 # plot start and goal points over the map (in pixels)
                 start_node_px = gmap.get_index_from_coordinates(nodes[i][0], nodes[i][1])
@@ -42,6 +42,7 @@ def createGraph(n, nodes,gmap):
 
                 # plt.plot(start_node_px[0], start_node_px[1], 'ro')
                 # plt.plot(goal_node_px[0], goal_node_px[1], 'go')
+            gmap.visited = np.zeros(gmap.dim_cells, dtype=np.float32)
 
     # plt.show()
     return adj
