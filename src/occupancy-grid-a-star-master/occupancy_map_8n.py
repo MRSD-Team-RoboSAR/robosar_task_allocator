@@ -52,7 +52,7 @@ def set_of_nodes(gmap,num_nodes):
     return tuple(start_node)
 
 if __name__ == '__main__':
-    num_nodes = 10
+    num_nodes = 9
     # load the map
     filename = 'maps/localization_map_vicon.pgm'
     new_file = "{}.png".format(filename)
@@ -60,5 +60,5 @@ if __name__ == '__main__':
         im = ImageOps.invert(im)
         im.save(new_file)
     gmap = OccupancyGridMap.from_png(new_file, 1)
-    nodes = ((65,40),(65,60),(70,60),(80,40),(90,40),(100,40),(90,50),(95,55),(100,60),(100,50))
+    nodes = ((65,40),(65,60),(70,60),(80,40),(90,40),(100,40),(90,50),(95,55),(100,60))
     adj = createGraph(num_nodes,nodes,gmap)
