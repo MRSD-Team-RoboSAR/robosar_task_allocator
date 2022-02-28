@@ -1,8 +1,8 @@
 from tracemalloc import start
-from gridmap import OccupancyGridMap
+from .gridmap import OccupancyGridMap
 import matplotlib.pyplot as plt
-from a_star import a_star
-from utils import plot_path
+from .a_star import a_star
+from .utils import plot_path
 import os
 from PIL import Image, ImageOps
 import numpy as np
@@ -23,8 +23,8 @@ def createGraph(n, nodes,gmap):
     nodes = np.array(nodes)
     for i in range(n):
         for j in range(i+1,n):
-            start_n = tuple(nodes[i,:])
-            stop_n = tuple(nodes[j,:])
+            start_n = (nodes[i,0], nodes[i,1])
+            stop_n = (nodes[j,0], nodes[j,1])
             path,path_px,adj[i,j] = a_star(start_n, stop_n, gmap, movement='8N')
             adj[j, i] = adj[i,j]
             gmap.plot()

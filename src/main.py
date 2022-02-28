@@ -29,18 +29,23 @@ from generate_graph.gridmap import OccupancyGridMap
 
 if __name__ == '__main__':
     # Create graph
-    filename = 'generate_graph/maps/localization_map_vicon.pgm'
+    filename = '../../robosar_task_generator/maps/willow-full.pgm'
     new_file = "{}.png".format(filename)
     with Image.open(filename) as im:
         im = ImageOps.invert(im)
         im.save(new_file)
     gmap = OccupancyGridMap.from_png(new_file, 1)
-    nodes = ((65, 40), (65, 60), (70, 60), (80, 40), (90, 40), (100, 40), (90, 50), (95, 55), (100, 60), (100, 50))
+    # nodes = ((65, 40), (65, 60), (70, 60), (80, 40), (90, 40), (100, 40), (90, 50), (95, 55), (100, 60), (100, 50))
+    nodes = np.load("../../robosar_task_generator/outputs/willow-full_lean.npy")
+    # gmap.plot()
+    # plt.plot(nodes[:,0],nodes[:,1], 'go')
+    # plt.show()
+    nodes = np.flip(nodes, axis=1).tolist()
     adj = occupancy_map_8n.createGraph(10, nodes, gmap)
 
     # Create robots
-    robot0 = Robot(0, list(nodes[0]), 0)
-    robot1 = Robot(1, list(nodes[0]), 0)
+    robot0 = Robot(0, nodes[0].tolist(), 0)
+    robot1 = Robot(1, nodes[0].tolist(), 0)
     robots = [robot0, robot1]
     # Create environment
     env = Environment(nodes, adj, robots)
