@@ -112,7 +112,8 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
                 new_total_cost_to_goal = new_cost + dist2d(new_pos, goal) + potential_function_cost
 
                 heappush(front, (new_total_cost_to_goal, new_cost, new_pos, pos))
-    iter = 0
+        iter+=1
+
     # reconstruct path backwards (only if we reached the goal)
     path = []
     path_idx = []

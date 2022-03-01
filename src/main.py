@@ -29,6 +29,8 @@ from generate_graph.gridmap import OccupancyGridMap
 
 if __name__ == '__main__':
     # Create graph
+    n = 20
+    nodes = np.load("../../robosar_task_generator/outputs/willow-full_lean.npy")
     filename = '../../robosar_task_generator/maps/willow-full.pgm'
     new_file = "{}.png".format(filename)
     with Image.open(filename) as im:
@@ -36,19 +38,21 @@ if __name__ == '__main__':
         im.save(new_file)
     gmap = OccupancyGridMap.from_png(new_file, 1)
     # nodes = ((65, 40), (65, 60), (70, 60), (80, 40), (90, 40), (100, 40), (90, 50), (95, 55), (100, 60), (100, 50))
-    nodes = np.load("../../robosar_task_generator/outputs/willow-full_lean.npy")
-    # gmap.plot()
-    # plt.plot(nodes[:,0],nodes[:,1], 'go')
-    # plt.show()
-    nodes = np.flip(nodes, axis=1).tolist()
-    adj = occupancy_map_8n.createGraph(10, nodes, gmap)
+    gmap.plot()
+    # # plt.plot(nodes[:,0],nodes[:,1], 'go')
+    # # plt.show()
+    # nodes_flip = np.flip(nodes, axis=1).tolist()
+    # adj = occupancy_map_8n.createGraph(n, nodes_flip, gmap)
+    # np.save('willow_20_graph.npy', adj)
 
     # Create robots
-    robot0 = Robot(0, nodes[0].tolist(), 0)
-    robot1 = Robot(1, nodes[0].tolist(), 0)
-    robots = [robot0, robot1]
+    robot0 = Robot(0, nodes[0], 0)
+    robot1 = Robot(1, nodes[0], 0)
+    robot2 = Robot(2, nodes[0], 0)
+    robots = [robot0, robot1, robot2]
     # Create environment
-    env = Environment(nodes, adj, robots)
+    adj = np.load('willow_20_graph.npy')
+    env = Environment(nodes[:n,:], adj[:n, :n], robots)
 
     # Plotting
     node_x = []
@@ -56,11 +60,12 @@ if __name__ == '__main__':
     for node in nodes:
         node_x.append(node[0])
         node_y.append(node[1])
-    plt.plot(node_x, node_y, 'ko', zorder=100)
+    plt.plot(node_x[:n], node_y[:n], 'ko', zorder=100)
     plt.plot(robot0.pos[0], robot0.pos[1], 'ro')
     plt.plot(robot1.pos[0], robot1.pos[1], 'bo')
+    plt.plot(robot2.pos[0], robot2.pos[1], 'mo')
 
-    sim = Simulation(env, 0.1, 1000)
+    sim = Simulation(env, 1, 1000)
     robot_paths = sim.simulate()
 
     for path in robot_paths:

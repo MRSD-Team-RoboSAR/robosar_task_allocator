@@ -30,7 +30,7 @@ class OccupancyGridMap:
         if x_index < 0 or y_index < 0 or x_index >= self.dim_cells[0] or y_index >= self.dim_cells[1]:
             raise Exception('Point is outside map boundary')
 
-        self.visited[y_index][x_index] = 1.0
+        self.visited[x_index][y_index] = 1.0
 
     def mark_visited(self, point):
         """
@@ -52,7 +52,7 @@ class OccupancyGridMap:
         if x_index < 0 or y_index < 0 or x_index >= self.dim_cells[0] or y_index >= self.dim_cells[1]:
             raise Exception('Point is outside map boundary')
 
-        if self.visited[y_index][x_index] == 1.0:
+        if self.visited[x_index][y_index] == 1.0:
             return True
         else:
             return False
@@ -78,7 +78,7 @@ class OccupancyGridMap:
         if x_index < 0 or y_index < 0 or x_index >= self.dim_cells[0] or y_index >= self.dim_cells[1]:
             raise Exception('Point is outside map boundary')
 
-        return self.data[y_index][x_index]
+        return self.data[x_index][y_index]
 
     def get_data(self, point):
         """
@@ -101,7 +101,7 @@ class OccupancyGridMap:
         if x_index < 0 or y_index < 0 or x_index >= self.dim_cells[0] or y_index >= self.dim_cells[1]:
             raise Exception('Point is outside map boundary')
 
-        self.data[y_index][x_index] = new_value
+        self.data[x_index][y_index] = new_value
 
     def set_data(self, point, new_value):
         """

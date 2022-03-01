@@ -6,7 +6,7 @@ class Environment:
     def __init__(self, nodes, adj, robots):
         self.nodes = nodes
         self.adj = adj
-        self.num_nodes = len(nodes)
+        self.num_nodes = adj.shape[0]
 
         self.robots = robots
         self.visited = set()

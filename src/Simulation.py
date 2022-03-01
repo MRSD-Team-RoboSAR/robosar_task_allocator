@@ -20,9 +20,13 @@ class Simulation:
         while len(self.env.visited) < self.env.num_nodes and self.t_step < self.max_steps:
             self.move()
 
-            plt.plot(self.env.robots[0].pos[0], self.env.robots[0].pos[1], 'ro')
-            plt.plot(self.env.robots[1].pos[0], self.env.robots[1].pos[1], 'bo')
+            plt.plot([self.env.robots[0].pos_prev[0], self.env.robots[0].pos[0]], [self.env.robots[0].pos_prev[1], self.env.robots[0].pos[1]], 'r-')
+            plt.plot([self.env.robots[1].pos_prev[0], self.env.robots[1].pos[0]], [self.env.robots[1].pos_prev[1], self.env.robots[1].pos[1]], 'b-')
+            plt.plot([self.env.robots[2].pos_prev[0], self.env.robots[2].pos[0]], [self.env.robots[2].pos_prev[1], self.env.robots[2].pos[1]], 'm-')
             plt.pause(0.005)
+
+            for r in self.env.robots:
+                r.pos_prev = [r.pos[0], r.pos[1]]
 
             self.t += self.dt
             self.t_step += 1
@@ -39,10 +43,23 @@ class Simulation:
         min_node_list = np.argsort(C)
         min_node = -1
         for i in min_node_list:
-            if i not in self.env.visited and i not in self.env.frontier:
+            if C[i] > 0 and i not in self.env.visited and i not in self.env.frontier:
                 min_node = i
                 break
+        # No A* path
+        if min_node == -1:
+            E = []
+            idx = []
+            for i, node in enumerate(self.env.nodes):
+                if i not in self.env.visited and i not in self.env.frontier:
+                    idx.append(i)
+                    E.append(np.sqrt((node[0] - robot.pos[0]) ** 2 + (node[1] - robot.pos[1]) ** 2))
+            if E:
+                min_node_i = np.argmin(np.array(E))
+                min_node = idx[min_node_i]
+
         print("Assigned robot {}: node {} at {}".format(id, min_node, self.env.nodes[min_node]))
+        plt.plot(self.env.nodes[min_node][0], self.env.nodes[min_node][1], 'go', zorder=101)
         robot.next = min_node
         self.env.frontier.add(min_node)
 
