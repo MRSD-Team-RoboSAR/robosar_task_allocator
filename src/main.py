@@ -30,9 +30,9 @@ def create_random_graph(n, env_size):
 
 def create_graph_from_file(filename, nodes, n):
     new_file = "{}.png".format(filename)
-    with Image.open(filename) as im:
-        im = ImageOps.invert(im)
-        im.save(new_file)
+    im = Image.open(filename).convert("L")
+    im = ImageOps.invert(im)
+    im.save(new_file)
     gmap = OccupancyGridMap.from_png(new_file, 1)
     # plt.plot(nodes[:,0],nodes[:,1], 'go')
     # plt.show()
@@ -44,7 +44,7 @@ def create_graph_from_file(filename, nodes, n):
 
 if __name__ == '__main__':
     # Create graph
-    n = 20
+    n = 60
     make_graph = False
     nodes = np.load("../../robosar_task_generator/outputs/willow-full_lean.npy")
     filename = '../../robosar_task_generator/maps/willow-full.pgm'
@@ -62,16 +62,11 @@ if __name__ == '__main__':
     robot2 = Robot(2, nodes[0], 0)
     robots = [robot0, robot1, robot2]
     # Create environment
-    adj = np.load('willow_20_graph.npy')
+    adj = np.load('willow_{}_graph.npy'.format(n))
     env = Environment(nodes[:n,:], adj, robots)
 
     # Plotting
-    node_x = []
-    node_y = []
-    for node in nodes:
-        node_x.append(node[0])
-        node_y.append(node[1])
-    plt.plot(node_x[:n], node_y[:n], 'ko', zorder=100)
+    plt.plot(nodes[:n,0], nodes[:n,1], 'ko', zorder=100)
     plt.plot(robot0.pos[0], robot0.pos[1], 'ro')
     plt.plot(robot1.pos[0], robot1.pos[1], 'bo')
     plt.plot(robot2.pos[0], robot2.pos[1], 'mo')
