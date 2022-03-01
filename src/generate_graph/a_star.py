@@ -73,7 +73,7 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
     # while there are elements to investigate in our front.
     iter = 0
     while front:
-        if iter == 1000:
+        if iter == 5000:
             break
         # get smallest item and remove from front.
         element = heappop(front)

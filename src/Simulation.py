@@ -48,6 +48,7 @@ class Simulation:
                 break
         # No A* path
         if min_node == -1:
+            print('USING EUCLIDEAN DISTANCE')
             E = []
             idx = []
             for i, node in enumerate(self.env.nodes):

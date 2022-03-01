@@ -19,32 +19,29 @@ def define_point(node,gmap):
         return node
 
 def createGraph(n, nodes,gmap):
-    adj = np.zeros((n, n))
+    adj = np.zeros((n, n))-1
     nodes = np.array(nodes)
     for i in range(n):
         for j in range(i+1,n):
             start_n = (nodes[i,0], nodes[i,1])
             stop_n = (nodes[j,0], nodes[j,1])
-            path,path_px,adj[i,j] = a_star(start_n, stop_n, gmap, movement='8N')
-            adj[j, i] = adj[i,j]
-            gmap.plot()
-
-            if not path:
-                adj[i, j] = -10
+            path,path_px,cost = a_star(start_n, stop_n, gmap, movement='8N')
 
             if path:
-                # plot resulting path in pixels over the map
-                plot_path(path_px)
+                adj[i, j] = cost
+                adj[j, i] = cost
+
+            # gmap.plot()
+            # if path:
+            #     # plot resulting path in pixels over the map
+            #     plot_path(path_px)
             #     print("hi")
-            # else:
-            #     adj[i,j] = -10
-            #
             #     # plot start and goal points over the map (in pixels)
             #     start_node_px = gmap.get_index_from_coordinates(nodes[i][0], nodes[i][1])
             #     goal_node_px = gmap.get_index_from_coordinates(nodes[j][0], nodes[j][1])
-            #
-            #     # plt.plot(start_node_px[0], start_node_px[1], 'ro')
-            #     # plt.plot(goal_node_px[0], goal_node_px[1], 'go')
+            #     plt.plot(start_node_px[0], start_node_px[1], 'ro')
+            #     plt.plot(goal_node_px[0], goal_node_px[1], 'go')
+
             gmap.visited = np.zeros(gmap.dim_cells, dtype=np.float32)
 
     # plt.show()
