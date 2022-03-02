@@ -1,12 +1,12 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from Robot import Robot
-from Environment import Environment
-from Simulation import Simulation
-from generate_graph import occupancy_map_8n
+from .Robot import Robot
+from .Environment import Environment
+from .Simulation import Simulation
+from .generate_graph import occupancy_map_8n
 from PIL import Image, ImageOps
-from generate_graph.gridmap import OccupancyGridMap
+from .generate_graph.gridmap import OccupancyGridMap
 import pickle
 
 # Random graph
