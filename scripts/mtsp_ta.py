@@ -49,25 +49,28 @@ def mtsp_allocator():
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1,2))
+        np.save(package_path+"/src/robosar_task_allocator/custom_{}_points.npy".format(nodes.shape[0]), nodes)
         print(nodes)
     except rospy.ServiceException as e:
         print("Service call failed: %s" % e)
 
-    # Create robots
-    robot0 = Robot(0, nodes[0], 0)
-    robot1 = Robot(1, nodes[0], 0)
-    robot2 = Robot(2, nodes[0], 0)
-    robots = [robot0, robot1, robot2]
 
     # Create graph
+    # nodes = np.load(maps_path+"/outputs/vicon_lab_points.npy")
+    # nodes = np.load(package_path + "/src/robosar_task_allocator/custom_10_points.npy")
     n = nodes.shape[0]
     make_graph = True
-    # nodes = np.load(maps_path+"/outputs/vicon_lab_points.npy")
     filename = maps_path+'/maps/willow-full.pgm'
     if make_graph:
         print('creating graph')
         create_graph_from_file(filename, nodes, n)
         print('done')
+
+    # Create robots
+    robot0 = Robot(1, nodes[0], 0)
+    robot1 = Robot(2, nodes[0], 0)
+    robot2 = Robot(3, nodes[0], 0)
+    robots = [robot0, robot1, robot2]
     
     # Create environment
     adj = np.load(package_path+'/src/robosar_task_allocator/custom_{}_graph.npy'.format(n))
@@ -105,6 +108,9 @@ def mtsp_allocator():
             elif(status==GoalStatus.LOST):
                 solver.assign(robot.id, robot.prev)
                 transmitter.setGoal(robot.id, pixels_to_m(env.nodes[robot.next]))
+        if len(solver.env.visited) == len(nodes):
+            print('finished')
+            break
         rate.sleep()
 
 if __name__ == '__main__':

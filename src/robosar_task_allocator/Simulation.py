@@ -37,7 +37,6 @@ class Simulation:
         print("Finished at t = {}".format(self.t))
         return robot_paths
 
-
     def move(self):
         for id, r in enumerate(self.env.robots):
             goal = self.env.nodes[r.next]

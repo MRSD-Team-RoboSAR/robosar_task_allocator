@@ -87,7 +87,7 @@ if __name__ == '__main__':
     plt.plot(robot1.pos[0], robot1.pos[1], 'bo')
     plt.plot(robot2.pos[0], robot2.pos[1], 'mo')
 
-    sim = Simulation(env, TA_mTSP(), 0.2, 300)
+    sim = Simulation(env, TA_mTSP(), 0.1, 300)
     robot_paths = sim.simulate()
 
     for i, path in enumerate(robot_paths):
