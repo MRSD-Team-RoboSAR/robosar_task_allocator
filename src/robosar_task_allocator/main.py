@@ -6,15 +6,14 @@ from TA import *
 from Environment import Environment
 from Simulation import Simulation
 from generate_graph import occupancy_map_8n
-from PIL import Image, ImageOps
 from generate_graph.gridmap import OccupancyGridMap
 import pickle
+import cv2
 
 # Random graph
 def distance(c1, c2):
     diff = (c1[0] - c2[0], c1[1] - c2[1])
     return np.sqrt(diff[0] * diff[0] + diff[1] * diff[1])
-
 
 def create_random_graph(n, env_size):
     nodes = []
@@ -29,19 +28,22 @@ def create_random_graph(n, env_size):
 
     return nodes, adj
 
-def create_graph_from_file(filename, nodes, n):
-    new_file = "{}.png".format(filename)
-    im = Image.open(filename).convert("L")
-    im = ImageOps.invert(im)
-    im.save(new_file)
+def create_graph_from_file(filename, nodes, n, downsample = 1):
+    im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+    dim = ((im.shape[1]+1) // downsample, (im.shape[0]+1) // downsample)
+    im = cv2.resize(im, dim, interpolation=cv2.INTER_AREA)
+    new_file = "{}_downsample.png".format(filename)
+    cv2.imwrite(new_file, im)
     gmap = OccupancyGridMap.from_png(new_file, 1)
-    # plt.plot(nodes[:,0],nodes[:,1], 'go')
-    # plt.show()
-    nodes_flip = np.flip(nodes, axis=1).tolist()
-    adj = occupancy_map_8n.createGraph(n, nodes_flip, gmap)
-    np.save('vicon_15_graph.npy', adj[:n, :n])
-    with open('vicon_map_data.pickle', 'wb') as f:
-        pickle.dump(gmap, f, pickle.HIGHEST_PROTOCOL)
+    nodes_flip = (np.flip(nodes, axis=1)/downsample).tolist()
+    adj = occupancy_map_8n.createGraph(n, nodes_flip, gmap)*downsample
+    np.save('willow_{}_graph.npy'.format(n), adj[:n, :n])
+
+def plot_pgm(filename):
+    im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+    im = cv2.flip(im, 0)
+    plt.imshow(im, cmap='gray', vmin=0, vmax=255, origin='lower', interpolation='none', alpha=1)
+    plt.draw()
 
 if __name__ == '__main__':
     # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/generate_graph/maps/localization_map_lab.pgm'
@@ -62,16 +64,20 @@ if __name__ == '__main__':
     # Create graph
     n = 60
     make_graph = False
+    downsample = 5
     # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
     nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_generator/outputs/willow-full_lean.npy")
     # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/generate_graph/maps/localization_map_lab.pgm'
+    filename = '/home/rachelzheng/robosar_ws/src/robosar_task_generator/maps/willow-full.pgm'
     if make_graph:
         print('creating graph')
-        create_graph_from_file(filename, nodes, n)
+        create_graph_from_file(filename, nodes, n, downsample)
+        print('done')
 
-    with open('willow_map_data.pickle', 'rb') as f:
-        gmap = pickle.load(f)
-    gmap.plot()
+    # with open('willow_map_data.pickle', 'rb') as f:
+    #     gmap = pickle.load(f)
+    # gmap.plot()
+    plot_pgm(filename)
 
     # Create robots
     robot0 = Robot(0, nodes[0], 0)

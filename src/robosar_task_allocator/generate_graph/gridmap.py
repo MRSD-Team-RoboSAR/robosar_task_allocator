@@ -4,7 +4,7 @@ from .utils import png_to_ogm
 
 
 class OccupancyGridMap:
-    def __init__(self, data_array, cell_size, occupancy_threshold=1):
+    def __init__(self, data_array, cell_size, occupancy_threshold=0.14):
         """
         Creates a grid map
         :param data_array: a 2D array with a value of occupancy per cell (values from 0 - 1)
@@ -199,7 +199,7 @@ class OccupancyGridMap:
         :return: the created OccupancyGridMap
         """
         ogm_data = png_to_ogm(filename, normalized=True)
-        ogm_data_arr = numpy.array(ogm_data)
+        ogm_data_arr = 1-numpy.array(ogm_data)
         ogm = OccupancyGridMap(ogm_data_arr, cell_size)
 
         return ogm
