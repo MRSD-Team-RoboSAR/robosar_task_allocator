@@ -67,9 +67,9 @@ def mtsp_allocator():
         print('done')
 
     # Create robots
-    robot0 = Robot(1, nodes[0], 0)
-    robot1 = Robot(2, nodes[0], 0)
-    robot2 = Robot(3, nodes[0], 0)
+    robot0 = Robot(0, nodes[0], 0)
+    robot1 = Robot(1, nodes[0], 0)
+    robot2 = Robot(2, nodes[0], 0)
     robots = [robot0, robot1, robot2]
     
     # Create environment

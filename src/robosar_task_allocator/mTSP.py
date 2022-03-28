@@ -16,7 +16,7 @@ def print_solution(data, manager, routing, solution):
         tours.append([])
         while not routing.IsEnd(index):
             plan_output += ' {} -> '.format(manager.IndexToNode(index))
-            tours[-1].append(manager.IndexToNode(index))
+            tours[vehicle_id].append(manager.IndexToNode(index))
             previous_index = index
             index = solution.Value(routing.NextVar(index))
             route_distance += routing.GetArcCostForVehicle(
@@ -74,6 +74,13 @@ def main(data):
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+
+    # Metaheuristics
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    search_parameters.time_limit.seconds = 13
+    # search_parameters.use_cp_sat = True
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)

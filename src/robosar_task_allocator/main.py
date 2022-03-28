@@ -60,15 +60,16 @@ if __name__ == '__main__':
     # np.save('vicon_lab_points.npy', vicon_lab_points)
     
     # Create graph
-    n = 15
+    n = 60
     make_graph = False
-    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
-    filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/generate_graph/maps/localization_map_lab.pgm'
+    # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
+    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_generator/outputs/willow-full_lean.npy")
+    # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/generate_graph/maps/localization_map_lab.pgm'
     if make_graph:
         print('creating graph')
         create_graph_from_file(filename, nodes, n)
 
-    with open('vicon_map_data.pickle', 'rb') as f:
+    with open('willow_map_data.pickle', 'rb') as f:
         gmap = pickle.load(f)
     gmap.plot()
 
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     robot2 = Robot(2, nodes[0], 0)
     robots = [robot0, robot1, robot2]
     # Create environment
-    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_{}_graph.npy'.format(n))
+    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/willow_{}_graph.npy'.format(n))
     env = Environment(nodes[:n,:], adj, robots)
 
     # Plotting
@@ -87,7 +88,7 @@ if __name__ == '__main__':
     plt.plot(robot1.pos[0], robot1.pos[1], 'bo')
     plt.plot(robot2.pos[0], robot2.pos[1], 'mo')
 
-    sim = Simulation(env, TA_mTSP(), 0.1, 300)
+    sim = Simulation(env, TA_mTSP(), 1, 300)
     robot_paths = sim.simulate()
 
     for i, path in enumerate(robot_paths):

@@ -35,10 +35,12 @@ class Simulation:
         for robot in self.env.robots:
             robot_paths.append(robot.visited)
         print("Finished at t = {}".format(self.t))
+        print("Objective value = {}".format(max(self.solver.objective_value)))
         return robot_paths
 
     def move(self):
         for id, r in enumerate(self.env.robots):
+            assert r.next
             goal = self.env.nodes[r.next]
             dir = np.array([goal[0]-r.pos[0], goal[1]-r.pos[1]])
             dist = np.linalg.norm(dir)
