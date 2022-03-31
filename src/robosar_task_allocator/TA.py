@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-# import robosar_task_allocator.mTSP as mTSP
-import mTSP
+import robosar_task_allocator.mTSP_utils as mTSP_utils
+# import mTSP_utils
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -58,7 +58,6 @@ class TA_greedy(TA):
 class TA_mTSP(TA):
     def init(self, env):
         self.env = env
-        # self.tours = [[0, 6, 11, 12, 13, 14], [0, 1, 2, 3, 4, 5], [0, 7, 8, 9, 10]]
         self.tours = self.calculate_mtsp(True)
         self.objective_value = [0] * len(self.env.robots)
 
@@ -71,9 +70,9 @@ class TA_mTSP(TA):
             self.env.visited.add(curr_node)
             print("Robot {} reached node {}".format(id, curr_node))
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
-                # new_subtour = self.calculate_mtsp(False)[id]
-                # if len(new_subtour) > 1:
-                #     self.tours[id] = new_subtour
+                # if len(self.env.visited)%30 == 0:
+                #     new_tour = self.calculate_mtsp(False)
+                #     self.tours = new_tour
                 # plt.plot(self.env.nodes[:, 0], self.env.nodes[:, 1], 'ko', zorder=100)
                 # for r in range(len(self.env.robots)):
                 #     plt.plot(self.env.nodes[self.tours[r], 0], self.env.nodes[self.tours[r], 1], '-')
@@ -91,84 +90,54 @@ class TA_mTSP(TA):
             self.objective_value[id] += self.env.adj[robot.prev][robot.next]
             self.env.frontier.add(min_node)
 
+
     def get_next_adj(self):
         to_visit = []
         starts = [r.next for r in self.env.robots]
         for i in range(self.env.num_nodes):
-            if (i not in self.env.visited) or (i in starts):
+            if i not in self.env.visited or i in starts:
                 to_visit.append(i)
 
         adj = np.zeros((len(to_visit), len(to_visit)))
         for idx1, n1 in enumerate(to_visit):
             for idx2, n2 in enumerate(to_visit):
-                if self.env.adj[n1][n2] < 0:
-                    adj[idx1][idx2] = 5*np.sqrt((self.env.nodes[n1, 0] - self.env.nodes[n2, 0]) ** 2 + (self.env.nodes[n1, 1] - self.env.nodes[n2, 1]) ** 2)
-                else:
-                    adj[idx1][idx2] = self.env.adj[n1][n2]
+                adj[idx1][idx2] = self.env.adj[n1][n2]
+        start_idx = [to_visit.index(s) for s in starts]
+        adj = self.tsp2hamiltonian(adj, start_idx)
         return adj, to_visit
+
 
     def calculate_mtsp(self, initial):
         data = {}
         starts = [r.prev for r in self.env.robots]
-        adj = self.tsp2hamiltonian(starts)
         if initial:
+            adj = self.tsp2hamiltonian(self.env.adj, starts)
             data['starts'] = starts
             data['ends'] = [self.env.num_nodes+i for i in range(self.env.num_robots)]
         else:
             adj, to_visit = self.get_next_adj()
             data['starts'] = [to_visit.index(r.next) for r in self.env.robots]
-            data['ends'] = [self.env.num_nodes+i for i in range(self.env.num_robots)]
+            data['ends'] = [len(to_visit)+i for i in range(self.env.num_robots)]
         data['num_vehicles'] = len(self.env.robots)
         data['distance_matrix'] = adj
-        tours = mTSP.main(data)
+        tours = mTSP_utils.solve(data)
         
         if not initial:
             tours = [[to_visit[i] for i in tour] for tour in tours]
             
-        # tours = self.refine_tours(tours)
         return tours
 
-    def refine_tours(self, tours):
-        tours_new = []
-        # refine tours
-        for tour in tours:
-            visited = set()
-            visited.add(tour[0])
-            tour_new = [tour[0]]
-            start = 0
-            for i in range(len(tour) - 1):
-                C = self.env.adj[start, tour]
-                min_node_list = np.argsort(C)
-                min_node = -1
-                for j in min_node_list:
-                    if C[j] > 0 and tour[j] not in visited:
-                        min_node = tour[j]
-                        break
-                # No A* path
-                if min_node == -1:
-                    E = []
-                    idx = []
-                    for t in tour:
-                        if t not in visited:
-                            idx.append(t)
-                            E.append(np.sqrt((self.env.nodes[t, 0] - self.env.nodes[start, 0]) ** 2 + (
-                                        self.env.nodes[t, 1] - self.env.nodes[start, 1]) ** 2))
-                    if E:
-                        min_node_i = np.argmin(np.array(E))
-                        min_node = idx[min_node_i]
-                start = min_node
-                visited.add(min_node)
-                tour_new.append(min_node)
-            tours_new.append(tour_new)
-        return tours_new
-    
-    def tsp2hamiltonian(self, starts):
-        adj_new = np.zeros((self.env.num_nodes+self.env.num_robots, self.env.num_nodes+self.env.num_robots))
-        adj_new[:self.env.num_nodes, :self.env.num_nodes] = self.env.adj
+
+    def tsp2hamiltonian(self, adj, starts):
+        adj_new = np.zeros((len(adj)+self.env.num_robots, len(adj)+self.env.num_robots))
+        adj_new[:len(adj), :len(adj)] = adj
         for i in range(self.env.num_robots):
             for j in starts:
-                adj_new[self.env.num_nodes+i, j] = 10e4
-                adj_new[j, self.env.num_nodes + i] = 10e4
+                adj_new[len(adj)+i, j] = 10e4
+                adj_new[j, len(adj) + i] = 10e4
+            for j in range(i+1, self.env.num_robots):
+                adj_new[len(adj) + i, len(adj)+j] = 10e4
+                adj_new[len(adj)+j, len(adj) + i] = 10e4
         return adj_new
 
             

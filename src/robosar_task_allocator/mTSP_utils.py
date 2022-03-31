@@ -30,7 +30,7 @@ def print_solution(data, manager, routing, solution):
     return tours
 
 
-def main(data):
+def solve(data):
     """Entry point of the program."""
 
     # Create the routing index manager.
@@ -54,10 +54,6 @@ def main(data):
     # Define cost of each arc.
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
 
-    # for from_index in range(len(data['distance_matrix'])):
-    #     for to_index in range(len(data['distance_matrix'])):
-    #         if data['distance_matrix'][from_index][to_index] > 300:
-    #             routing.NextVar(from_index).RemoveValue(to_index)
 
     # Add Distance constraint.
     dimension_name = 'Distance'
@@ -75,12 +71,11 @@ def main(data):
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
 
-    # Metaheuristics
+    # Metaheuristics for local search
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.seconds = 13
-    # search_parameters.use_cp_sat = True
+    search_parameters.time_limit.seconds = 5
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
@@ -90,5 +85,5 @@ def main(data):
     if solution:
         tours = print_solution(data, manager, routing, solution)
     else:
-        print('No solution found !')
+        raise Exception('No solution found !')
     return tours

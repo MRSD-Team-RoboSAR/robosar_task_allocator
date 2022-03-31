@@ -15,27 +15,12 @@ from nav_msgs.msg import OccupancyGrid
 from robosar_messages.srv import *
 from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
-from PIL import Image, ImageOps
+import robosar_task_allocator.utils as utils
 
 
 rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
-
-def pixels_to_m(pixels):
-    return [pixels[0]*0.1,pixels[1]*0.1]
-
-def create_graph_from_file(filename, nodes, n):
-    new_file = "{}.png".format(filename)
-    im = Image.open(filename).convert("L")
-    im = ImageOps.invert(im)
-    im.save(new_file)
-    gmap = OccupancyGridMap.from_png(new_file, 1)
-    nodes_flip = np.flip(nodes, axis=1).tolist()
-    adj = occupancy_map_8n.createGraph(n, nodes_flip, gmap)
-    np.save(package_path+'/src/robosar_task_allocator/custom_{}_graph.npy'.format(n), adj[:n, :n])
-    with open('willow_map_data.pickle', 'wb') as f:
-        pickle.dump(gmap, f, pickle.HIGHEST_PROTOCOL)
 
 def mtsp_allocator():
     rospy.init_node('task_allocator_mtsp', anonymous=True)
@@ -43,27 +28,30 @@ def mtsp_allocator():
     # Get waypoints client
     map_msg = rospy.wait_for_message("/map", OccupancyGrid)
     rospy.wait_for_service('taskgen_getwaypts')
+    scale = map_msg.info.resolution
+    origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
+    data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
+    print(data)
     try:
         print("calling service")
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1,2))
-        np.save(package_path+"/src/robosar_task_allocator/custom_{}_points.npy".format(nodes.shape[0]), nodes)
+        # np.save(package_path+"/src/robosar_task_allocator/custom_{}_points.npy".format(nodes.shape[0]), nodes)
         print(nodes)
     except rospy.ServiceException as e:
-        print("Service call failed: %s" % e)
+        ROS_ERROR("Service call failed: %s" % e)
 
 
     # Create graph
-    # nodes = np.load(maps_path+"/outputs/vicon_lab_points.npy")
-    # nodes = np.load(package_path + "/src/robosar_task_allocator/custom_10_points.npy")
     n = nodes.shape[0]
+    downsample = 5
     make_graph = True
     filename = maps_path+'/maps/willow-full.pgm'
     if make_graph:
         print('creating graph')
-        create_graph_from_file(filename, nodes, n)
+        adj = utils.create_graph_from_file(filename, nodes, n, downsample, False)
         print('done')
 
     # Create robots
@@ -73,7 +61,7 @@ def mtsp_allocator():
     robots = [robot0, robot1, robot2]
     
     # Create environment
-    adj = np.load(package_path+'/src/robosar_task_allocator/custom_{}_graph.npy'.format(n))
+    # adj = np.load(package_path+'/custom_{}_graph.npy'.format(n))
     env = Environment(nodes[:n,:], adj, robots)
 
     print('routing')
@@ -82,9 +70,8 @@ def mtsp_allocator():
     print('done')
 
     # plot
-    with open('willow_map_data.pickle', 'rb') as f:
-        gmap = pickle.load(f)
-    gmap.plot()
+    # utils.plot_pgm(filename)
+    utils.plot_pgm_data(data)
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
@@ -103,11 +90,11 @@ def mtsp_allocator():
             status = transmitter.getStatus(robot.id)
             if(status==GoalStatus.SUCCEEDED and robot.next is not robot.prev):
                 solver.reached(robot.id, robot.next)
-                transmitter.setGoal(robot.id, pixels_to_m(env.nodes[robot.next]))
+                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 print(env.visited)
             elif(status==GoalStatus.LOST):
                 solver.assign(robot.id, robot.prev)
-                transmitter.setGoal(robot.id, pixels_to_m(env.nodes[robot.next]))
+                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
