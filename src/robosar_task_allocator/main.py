@@ -6,8 +6,6 @@ from TA import *
 import utils
 from Environment import Environment
 from Simulation import Simulation
-from generate_graph import occupancy_map_8n
-from generate_graph.gridmap import OccupancyGridMap
 import pickle
 import cv2
 
@@ -31,8 +29,8 @@ def create_random_graph(n, env_size):
 
 if __name__ == '__main__':
     # Create graph
-    n = 60
-    make_graph = False
+    n = 20
+    make_graph = True
     downsample = 5
     # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
     nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_generator/outputs/willow-full_lean.npy")
@@ -40,7 +38,7 @@ if __name__ == '__main__':
     filename = '/home/rachelzheng/robosar_ws/src/robosar_task_generator/maps/willow-full.pgm'
     if make_graph:
         print('creating graph')
-        adj = utils.create_graph_from_file(filename, nodes, n, downsample, make_graph)
+        adj = utils.create_graph_from_file(filename, nodes, n, downsample, False)
         print('done')
 
     utils.plot_pgm(filename)
@@ -51,7 +49,7 @@ if __name__ == '__main__':
     robot2 = Robot(2, nodes[0], 0)
     robots = [robot0, robot1, robot2]
     # Create environment
-    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/willow_{}_graph.npy'.format(n))
+    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/willow_{}_graph.npy'.format(n))
     env = Environment(nodes[:n,:], adj, robots)
 
     # Plotting

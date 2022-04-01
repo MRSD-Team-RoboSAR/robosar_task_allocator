@@ -1,6 +1,9 @@
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import skimage.measure
+# from generate_graph import occupancy_map_8n
+# from generate_graph.gridmap import OccupancyGridMap
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
 from robosar_task_allocator.generate_graph import occupancy_map_8n
 
@@ -28,6 +31,15 @@ def create_graph_from_file(filename, nodes, n, downsample = 1, save = False):
     nodes_flip = (np.flip(nodes, axis=1)/downsample).tolist()
     adj = occupancy_map_8n.createGraph(n, nodes_flip, gmap)*downsample
     if save:
-        np.save('custom_{}_graph.npy'.format(n), adj[:n, :n])
+        np.save('saved_graphs/custom_{}_graph.npy'.format(n), adj[:n, :n])
+    return adj
+
+def create_graph_from_data(data, nodes, n, downsample = 1, save = False):
+    resized_image = skimage.measure.block_reduce(data, (downsample,downsample), np.max)
+    gmap = OccupancyGridMap.from_data(resized_image)
+    nodes_flip = (np.flip(nodes, axis=1)/downsample).tolist()
+    adj = occupancy_map_8n.createGraph(n, nodes_flip, gmap)*downsample
+    if save:
+        np.save('saved_graphs/custom_{}_graph.npy'.format(n), adj[:n, :n])
     return adj
 

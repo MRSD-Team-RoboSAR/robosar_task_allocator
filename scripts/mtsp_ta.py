@@ -31,14 +31,15 @@ def mtsp_allocator():
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
-    print(data)
+    print((map_msg.info.height, map_msg.info.width))
+
     try:
         print("calling service")
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1,2))
-        # np.save(package_path+"/src/robosar_task_allocator/custom_{}_points.npy".format(nodes.shape[0]), nodes)
+        # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
         print(nodes)
     except rospy.ServiceException as e:
         ROS_ERROR("Service call failed: %s" % e)
@@ -48,10 +49,10 @@ def mtsp_allocator():
     n = nodes.shape[0]
     downsample = 5
     make_graph = True
-    filename = maps_path+'/maps/willow-full.pgm'
+    # filename = maps_path+'/maps/willow-full.pgm'
     if make_graph:
         print('creating graph')
-        adj = utils.create_graph_from_file(filename, nodes, n, downsample, False)
+        adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
         print('done')
 
     # Create robots
@@ -61,7 +62,7 @@ def mtsp_allocator():
     robots = [robot0, robot1, robot2]
     
     # Create environment
-    # adj = np.load(package_path+'/custom_{}_graph.npy'.format(n))
+    # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))
     env = Environment(nodes[:n,:], adj, robots)
 
     print('routing')
