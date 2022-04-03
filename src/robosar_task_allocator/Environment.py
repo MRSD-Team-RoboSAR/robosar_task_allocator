@@ -20,9 +20,12 @@ class Environment:
 
         self.num_nodes = adj.shape[0]
         self.robots = robots
+        self.id_dict = {}
+        for idx, id in enumerate(self.robots.keys()):
+            self.id_dict[id] = idx
         self.num_robots = len(self.robots)
         self.visited = set()
-        for r in self.robots:
+        for r in self.robots.values():
             self.visited.add(r.prev)
         self.frontier = set()
 

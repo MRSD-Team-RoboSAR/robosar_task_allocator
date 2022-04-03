@@ -12,6 +12,7 @@ import pickle
 import rospkg
 from actionlib_msgs.msg import GoalStatus
 from nav_msgs.msg import OccupancyGrid
+from std_msgs.msg import Bool
 from robosar_messages.srv import *
 from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
@@ -21,12 +22,27 @@ import robosar_task_allocator.utils as utils
 rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
+agent_active_status = {}
+
+def status_callback(msg):
+    rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
+    try:
+        print("calling service")
+        get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
+        resp1 = get_status()
+        active_agents = resp1.agents_active
+        for a in active_agents:
+            agent_active_status[int(a[-1])] = True
+
+    except rospy.ServiceException as e:
+        ROS_ERROR("Agent status service call failed: %s" % e)
 
 def mtsp_allocator():
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
-    # Get waypoints client
+    # Get map
     map_msg = rospy.wait_for_message("/map", OccupancyGrid)
+    # Get waypoints
     rospy.wait_for_service('taskgen_getwaypts')
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
@@ -42,7 +58,7 @@ def mtsp_allocator():
         # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
         print(nodes)
     except rospy.ServiceException as e:
-        ROS_ERROR("Service call failed: %s" % e)
+        ROS_ERROR("Task generation service call failed: %s" % e)
 
 
     # Create graph
@@ -55,11 +71,24 @@ def mtsp_allocator():
         adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
         print('done')
 
+    # Get active agents
+    rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
+    rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
+    try:
+        print("calling service")
+        get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
+        resp1 = get_status()
+        active_agents = resp1.agents_active
+        for a in active_agents:
+            agent_active_status[int(a[-1])] = True
+    except rospy.ServiceException as e:
+        ROS_ERROR("Agent status service call failed: %s" % e)
+
     # Create robots
-    robot0 = Robot(0, nodes[0], 0)
-    robot1 = Robot(1, nodes[0], 0)
-    robot2 = Robot(2, nodes[0], 0)
-    robots = [robot0, robot1, robot2]
+    robots = {}
+    for id in agent_active_status:
+        robot = Robot(id, nodes[0], 0)
+        robots[id] = robot
     
     # Create environment
     # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))

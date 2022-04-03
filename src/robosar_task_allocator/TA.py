@@ -51,7 +51,7 @@ class TA_greedy(TA):
         print("Assigned robot {}: node {} at {}".format(id, min_node, self.env.nodes[min_node]))
         plt.plot(self.env.nodes[min_node][0], self.env.nodes[min_node][1], 'go', zorder=101)
         robot.next = min_node
-        self.objective_value[id] += self.env.adj[robot.prev][robot.next]
+        self.objective_value[self.env.id_dict[id]] += self.env.adj[robot.prev][robot.next]
         self.env.frontier.add(min_node)
 
 
@@ -81,19 +81,19 @@ class TA_mTSP(TA):
 
     def assign(self, id, curr_node):
         robot = self.env.robots[id]
-        if self.tours[id] and len(self.tours[id]) > 1:
-            min_node = self.tours[id][1]
+        if self.tours[self.env.id_dict[id]] and len(self.tours[self.env.id_dict[id]]) > 1:
+            min_node = self.tours[self.env.id_dict[id]][1]
             print("Assigned robot {}: node {} at {}".format(id, min_node, self.env.nodes[min_node]))
             plt.plot(self.env.nodes[min_node][0], self.env.nodes[min_node][1], 'go', zorder=200)
             robot.next = min_node
-            self.tours[id] = self.tours[id][1:]
-            self.objective_value[id] += self.env.adj[robot.prev][robot.next]
+            self.tours[self.env.id_dict[id]] = self.tours[self.env.id_dict[id]][1:]
+            self.objective_value[self.env.id_dict[id]] += self.env.adj[robot.prev][robot.next]
             self.env.frontier.add(min_node)
 
 
     def get_next_adj(self):
         to_visit = []
-        starts = [r.next for r in self.env.robots]
+        starts = [r.next for r in self.env.robots.values()]
         for i in range(self.env.num_nodes):
             if i not in self.env.visited or i in starts:
                 to_visit.append(i)
@@ -109,14 +109,14 @@ class TA_mTSP(TA):
 
     def calculate_mtsp(self, initial):
         data = {}
-        starts = [r.prev for r in self.env.robots]
+        starts = [r.prev for r in self.env.robots.values()]
         if initial:
             adj = self.tsp2hamiltonian(self.env.adj, starts)
             data['starts'] = starts
             data['ends'] = [self.env.num_nodes+i for i in range(self.env.num_robots)]
         else:
             adj, to_visit = self.get_next_adj()
-            data['starts'] = [to_visit.index(r.next) for r in self.env.robots]
+            data['starts'] = [to_visit.index(r.next) for r in self.env.robots.values()]
             data['ends'] = [len(to_visit)+i for i in range(self.env.num_robots)]
         data['num_vehicles'] = len(self.env.robots)
         data['distance_matrix'] = adj

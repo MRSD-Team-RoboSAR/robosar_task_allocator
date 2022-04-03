@@ -44,21 +44,25 @@ if __name__ == '__main__':
     utils.plot_pgm(filename)
 
     # Create robots
-    robot0 = Robot(0, nodes[0], 0)
-    robot1 = Robot(1, nodes[0], 0)
-    robot2 = Robot(2, nodes[0], 0)
-    robots = [robot0, robot1, robot2]
+    id0 = 1
+    id1 = 2
+    id2 = 3
+    robot0 = Robot(id0, nodes[0], 0)
+    robot1 = Robot(id1, nodes[0], 0)
+    robot2 = Robot(id2, nodes[0], 0)
+    robots = {id0: robot0, id1: robot1, id2: robot2}
     # Create environment
     adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/willow_{}_graph.npy'.format(n))
     env = Environment(nodes[:n,:], adj, robots)
 
     # Plotting
+    colors = ['r', 'b', 'm']
     plt.plot(nodes[:n,0], nodes[:n,1], 'ko', zorder=100)
-    plt.plot(robot0.pos[0], robot0.pos[1], 'ro')
-    plt.plot(robot1.pos[0], robot1.pos[1], 'bo')
-    plt.plot(robot2.pos[0], robot2.pos[1], 'mo')
+    plt.plot(robot0.pos[0], robot0.pos[1], colors[0]+'o')
+    plt.plot(robot1.pos[0], robot1.pos[1], colors[1]+'o')
+    plt.plot(robot2.pos[0], robot2.pos[1], colors[2]+'o')
 
-    sim = Simulation(env, TA_mTSP(), 1, 300)
+    sim = Simulation(env, TA_mTSP(), 1, 300, colors)
     robot_paths = sim.simulate()
 
     for i, path in enumerate(robot_paths):
