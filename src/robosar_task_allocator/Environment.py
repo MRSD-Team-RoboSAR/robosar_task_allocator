@@ -1,10 +1,12 @@
 import numpy as np
 from itertools import combinations
 import heapq
+from Robot import Robot
+# from robosar_task_allocator.Robot import Robot
 
 class Environment:
 
-    def __init__(self, nodes, adj, robots):
+    def __init__(self, nodes, adj, robots = {}):
         self.nodes = nodes
         self.adj = adj
         # fill in adjacency matrix to be fully connected
@@ -28,6 +30,25 @@ class Environment:
         for r in self.robots.values():
             self.visited.add(r.prev)
         self.frontier = set()
+
+
+    def add_robot(self, id, start):
+        robot = Robot(id, self.nodes[start], start)
+        self.robots[id] = robot
+        self.num_robots = len(self.robots)
+        self.id_dict[id] = self.num_robots-1
+        self.visited.add(robot.prev)
+
+
+    def fleet_update(self, agent_active_status):
+        for agent, active in agent_active_status.items():
+            if not active:
+                self.robots.pop(agent)
+                self.id_dict.pop(agent)
+        for idx, id in enumerate(self.robots.keys()):
+            self.id_dict[id] = idx
+        self.num_robots = len(self.robots)
+
 
     def dijkstra(self, start, goal):
         m = self.adj.shape[0]

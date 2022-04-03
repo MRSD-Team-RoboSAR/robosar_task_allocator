@@ -7,7 +7,7 @@ class Simulation:
     def __init__(self, env, solver, dt, max_steps, colors):
         self.env = env
         self.solver = solver
-        solver.init(self.env)
+        self.solver.init(self.env)
         self.dt = dt
         self.t = 0
         self.t_step = 0
@@ -19,6 +19,12 @@ class Simulation:
             self.solver.assign(id, self.env.robots[id].prev)
 
         while len(self.env.visited) < self.env.num_nodes and self.t_step < self.max_steps:
+            if self.t_step == 10:
+                self.deactivate_robot(3)
+                self.solver.calculate_mtsp(False)
+                for id in self.env.robots:
+                    self.solver.assign(id, self.env.robots[id].prev)
+
             self.move()
 
             for idx, r in enumerate(self.env.robots.values()):
@@ -57,3 +63,14 @@ class Simulation:
                     r.pos[1] = x_next[1]
             else:
                 self.solver.reached(id, r.next)
+
+    def deactivate_robot(self, id):
+        active_agent_status = {}
+        for r in self.env.robots:
+            if r != id:
+                active_agent_status[r] = True
+            else:
+                active_agent_status[r] = False
+        self.env.fleet_update(active_agent_status)
+
+

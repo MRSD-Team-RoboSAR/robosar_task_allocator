@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-import robosar_task_allocator.mTSP_utils as mTSP_utils
-# import mTSP_utils
+# import robosar_task_allocator.mTSP_utils as mTSP_utils
+import mTSP_utils
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -116,6 +116,7 @@ class TA_mTSP(TA):
             data['ends'] = [self.env.num_nodes+i for i in range(self.env.num_robots)]
         else:
             adj, to_visit = self.get_next_adj()
+            prev = {r.id: r.prev for r in self.env.robots.values()}
             data['starts'] = [to_visit.index(r.next) for r in self.env.robots.values()]
             data['ends'] = [len(to_visit)+i for i in range(self.env.num_robots)]
         data['num_vehicles'] = len(self.env.robots)
@@ -123,8 +124,10 @@ class TA_mTSP(TA):
         tours = mTSP_utils.solve(data)
         
         if not initial:
-            tours = [[to_visit[i] for i in tour] for tour in tours]
-            
+            self.tours = [[to_visit[i] for i in tour] for tour in tours]
+            for id, idx in self.env.id_dict.items():
+                self.tours[idx].insert(0, prev[id])
+
         return tours
 
 

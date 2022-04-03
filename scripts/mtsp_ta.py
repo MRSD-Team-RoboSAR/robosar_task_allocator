@@ -31,8 +31,12 @@ def status_callback(msg):
         get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
         resp1 = get_status()
         active_agents = resp1.agents_active
+        for a in agent_active_status:
+            agent_active_status[a] = False
         for a in active_agents:
             agent_active_status[int(a[-1])] = True
+        # update fleet
+        env.fleet_update(agent_active_status)
 
     except rospy.ServiceException as e:
         ROS_ERROR("Agent status service call failed: %s" % e)
@@ -83,16 +87,14 @@ def mtsp_allocator():
             agent_active_status[int(a[-1])] = True
     except rospy.ServiceException as e:
         ROS_ERROR("Agent status service call failed: %s" % e)
-
-    # Create robots
-    robots = {}
-    for id in agent_active_status:
-        robot = Robot(id, nodes[0], 0)
-        robots[id] = robot
     
     # Create environment
     # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))
-    env = Environment(nodes[:n,:], adj, robots)
+    env = Environment(nodes[:n,:], adj)
+
+    # Create robots
+    for id in agent_active_status:
+        env.add_robot(id, 0)
 
     print('routing')
     solver = TA_mTSP()

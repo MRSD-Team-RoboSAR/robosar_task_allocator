@@ -30,7 +30,7 @@ def create_random_graph(n, env_size):
 if __name__ == '__main__':
     # Create graph
     n = 20
-    make_graph = True
+    make_graph = False
     downsample = 5
     # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
     nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_generator/outputs/willow-full_lean.npy")
@@ -43,24 +43,20 @@ if __name__ == '__main__':
 
     utils.plot_pgm(filename)
 
-    # Create robots
-    id0 = 1
-    id1 = 2
-    id2 = 3
-    robot0 = Robot(id0, nodes[0], 0)
-    robot1 = Robot(id1, nodes[0], 0)
-    robot2 = Robot(id2, nodes[0], 0)
-    robots = {id0: robot0, id1: robot1, id2: robot2}
     # Create environment
     adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/willow_{}_graph.npy'.format(n))
-    env = Environment(nodes[:n,:], adj, robots)
+    env = Environment(nodes[:n,:], adj)
+
+    # Create robots
+    id_list = [1,2,3]
+    for id in id_list:
+        env.add_robot(id, 0)
 
     # Plotting
     colors = ['r', 'b', 'm']
     plt.plot(nodes[:n,0], nodes[:n,1], 'ko', zorder=100)
-    plt.plot(robot0.pos[0], robot0.pos[1], colors[0]+'o')
-    plt.plot(robot1.pos[0], robot1.pos[1], colors[1]+'o')
-    plt.plot(robot2.pos[0], robot2.pos[1], colors[2]+'o')
+    for idx, r in enumerate(env.robots.values()):
+        plt.plot([r.pos_prev[0], r.pos[0]], [r.pos_prev[1], r.pos[1]], colors[idx] + 'o')
 
     sim = Simulation(env, TA_mTSP(), 1, 300, colors)
     robot_paths = sim.simulate()
