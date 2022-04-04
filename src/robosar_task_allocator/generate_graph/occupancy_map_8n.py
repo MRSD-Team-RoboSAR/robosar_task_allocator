@@ -35,7 +35,7 @@ def createGraph(n, nodes,gmap):
             # if path:
             #     # plot resulting path in pixels over the map
             #     plot_path(path_px)
-            #     print("hi")
+            # #     print("hi")
             #     # plot start and goal points over the map (in pixels)
             #     start_node_px = gmap.get_index_from_coordinates(nodes[i][0], nodes[i][1])
             #     goal_node_px = gmap.get_index_from_coordinates(nodes[j][0], nodes[j][1])

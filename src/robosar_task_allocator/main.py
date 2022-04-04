@@ -1,19 +1,22 @@
+"""
+Main script to be executed. Used for testing without ROS.
+"""
+
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from .Robot import Robot
-from .Environment import Environment
-from .Simulation import Simulation
-from .generate_graph import occupancy_map_8n
-from PIL import Image, ImageOps
-from .generate_graph.gridmap import OccupancyGridMap
+from Robot import Robot
+from TA import *
+import utils
+from Environment import Environment
+from Simulation import Simulation
 import pickle
+import cv2
 
 # Random graph
 def distance(c1, c2):
     diff = (c1[0] - c2[0], c1[1] - c2[1])
     return np.sqrt(diff[0] * diff[0] + diff[1] * diff[1])
-
 
 def create_random_graph(n, env_size):
     nodes = []
@@ -28,50 +31,38 @@ def create_random_graph(n, env_size):
 
     return nodes, adj
 
-def create_graph_from_file(filename, nodes, n):
-    new_file = "{}.png".format(filename)
-    im = Image.open(filename).convert("L")
-    im = ImageOps.invert(im)
-    im.save(new_file)
-    gmap = OccupancyGridMap.from_png(new_file, 1)
-    # plt.plot(nodes[:,0],nodes[:,1], 'go')
-    # plt.show()
-    nodes_flip = np.flip(nodes, axis=1).tolist()
-    adj = occupancy_map_8n.createGraph(n, nodes_flip, gmap)
-    np.save('willow_20_graph.npy', adj[:n, :n])
-    with open('map_data.pickle', 'wb') as f:
-        pickle.dump(gmap, f, pickle.HIGHEST_PROTOCOL)
-
 if __name__ == '__main__':
     # Create graph
-    n = 60
+    n = 20
     make_graph = False
-    nodes = np.load("../../robosar_task_generator/outputs/willow-full_lean.npy")
-    filename = '../../robosar_task_generator/maps/willow-full.pgm'
+    downsample = 5
+    # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
+    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_generator/outputs/willow-full_lean.npy")
+    # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/generate_graph/maps/localization_map_lab.pgm'
+    filename = '/home/rachelzheng/robosar_ws/src/robosar_task_generator/maps/willow-full.pgm'
     if make_graph:
         print('creating graph')
-        create_graph_from_file(filename, nodes, n)
+        adj = utils.create_graph_from_file(filename, nodes, n, downsample, False)
+        print('done')
 
-    with open('map_data.pickle', 'rb') as f:
-        gmap = pickle.load(f)
-    gmap.plot()
+    utils.plot_pgm(filename)
+
+    # Create environment
+    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/willow_{}_graph.npy'.format(n))
+    env = Environment(nodes[:n,:], adj)
 
     # Create robots
-    robot0 = Robot(0, nodes[0], 0)
-    robot1 = Robot(1, nodes[0], 0)
-    robot2 = Robot(2, nodes[0], 0)
-    robots = [robot0, robot1, robot2]
-    # Create environment
-    adj = np.load('willow_{}_graph.npy'.format(n))
-    env = Environment(nodes[:n,:], adj, robots)
+    id_list = [1,2,3]
+    for id in id_list:
+        env.add_robot(id, 0)
 
     # Plotting
+    colors = ['r', 'b', 'm']
     plt.plot(nodes[:n,0], nodes[:n,1], 'ko', zorder=100)
-    plt.plot(robot0.pos[0], robot0.pos[1], 'ro')
-    plt.plot(robot1.pos[0], robot1.pos[1], 'bo')
-    plt.plot(robot2.pos[0], robot2.pos[1], 'mo')
+    for idx, r in enumerate(env.robots.values()):
+        plt.plot([r.pos_prev[0], r.pos[0]], [r.pos_prev[1], r.pos[1]], colors[idx] + 'o')
 
-    sim = Simulation(env, 1, 1000)
+    sim = Simulation(env, TA_mTSP(), 1, 300, colors)
     robot_paths = sim.simulate()
 
     for i, path in enumerate(robot_paths):
