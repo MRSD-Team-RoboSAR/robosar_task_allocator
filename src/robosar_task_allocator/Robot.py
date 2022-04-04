@@ -1,4 +1,8 @@
-
+"""
+Robot class
+- Represents a robot
+- Keeps track of robot id, current position, previous and next task.
+"""
 class Robot:
 
     def __init__(self, id, start, prev):

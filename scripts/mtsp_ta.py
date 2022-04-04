@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 
-# Created by Indraneel on 01/03/22
+# Created by Indraneel and Rachel on 01/03/22
+"""
+Task Allocation node: main script to be executed.
+- Gets map Occupancy Grid as a message
+- Gets tasks by calling task generation service
+- Creates graph of tasks in map
+- Gets active agents by calling status service
+- Solves task allocation problem
+- Assigns tasks to robots
+"""
 
 import rospy
 from robosar_task_allocator.Environment import Environment
@@ -51,7 +60,6 @@ def mtsp_allocator():
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
-    print((map_msg.info.height, map_msg.info.width))
 
     try:
         print("calling service")

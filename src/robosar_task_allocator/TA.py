@@ -1,15 +1,34 @@
+"""
+Task Allocation classes
+- TA_greedy: greedy task allocator
+- TA_mTSP: Multiple Traveling Salesman Problem task allocator
+"""
+
 from abc import ABC, abstractmethod
 # import robosar_task_allocator.mTSP_utils as mTSP_utils
 import mTSP_utils
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class TA(ABC):
+    """
+    Task allocation abstract class
+    """
+
     def init(self, env):
+        """ initializes task allocation object
+        env: Environment object
+        """
         self.env = env
         self.objective_value = [0] * len(self.env.robots)
 
+
     def reached(self, id, curr_node):
+        """ called after robot completes task
+        id: int
+        curr_node: int
+        """
         r = self.env.robots[id]
         if r.prev is not curr_node:
             r.prev = curr_node
@@ -22,11 +41,19 @@ class TA(ABC):
 
     @abstractmethod
     def assign(self, id, curr_node):
+        """ called by reached() to assign robot its next task
+       id: int
+       curr_node: int
+       """
         pass
 
-
 class TA_greedy(TA):
+    """
+    TA_greedy: greedy task allocator
+    """
+
     def assign(self, id, curr_node):
+        # Find next unvisited min cost task
         C = self.env.adj[curr_node, :]
         robot = self.env.robots[id]
         min_node_list = np.argsort(C)
@@ -35,7 +62,7 @@ class TA_greedy(TA):
             if C[i] > 0 and i not in self.env.visited and i not in self.env.frontier:
                 min_node = i
                 break
-        # No A* path
+        # No feasible path to any task
         if min_node == -1:
             print('USING EUCLIDEAN DISTANCE')
             E = []
@@ -56,6 +83,10 @@ class TA_greedy(TA):
 
 
 class TA_mTSP(TA):
+    """
+    TA_mTSP: Multiple Traveling Salesman Problem task allocator
+    """
+
     def init(self, env):
         self.env = env
         self.tours = self.calculate_mtsp(True)
@@ -92,6 +123,9 @@ class TA_mTSP(TA):
 
 
     def get_next_adj(self):
+        """
+        Get cost matrix for unvisited tasks
+        """
         to_visit = []
         starts = [r.next for r in self.env.robots.values()]
         for i in range(self.env.num_nodes):
@@ -108,9 +142,13 @@ class TA_mTSP(TA):
 
 
     def calculate_mtsp(self, initial):
+        """
+        Uses Google OR-Tools VRP Library to solve for optimal tours
+        initial: Bool
+        """
         data = {}
         starts = [r.prev for r in self.env.robots.values()]
-        if initial:
+        if initial: # first solution
             adj = self.tsp2hamiltonian(self.env.adj, starts)
             data['starts'] = starts
             data['ends'] = [self.env.num_nodes+i for i in range(self.env.num_robots)]
@@ -132,6 +170,11 @@ class TA_mTSP(TA):
 
 
     def tsp2hamiltonian(self, adj, starts):
+        """
+        Converts TSP problem formulation to Hamiltonian Path
+        adj: nxn np.array
+        starts: n list
+        """
         adj_new = np.zeros((len(adj)+self.env.num_robots, len(adj)+self.env.num_robots))
         adj_new[:len(adj), :len(adj)] = adj
         for i in range(self.env.num_robots):

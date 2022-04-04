@@ -1,3 +1,7 @@
+"""
+Main script to be executed. Used for testing without ROS.
+"""
+
 import random
 import numpy as np
 import matplotlib.pyplot as plt
