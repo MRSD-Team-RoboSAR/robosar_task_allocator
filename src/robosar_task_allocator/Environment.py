@@ -6,8 +6,8 @@ Environment class
 import numpy as np
 from itertools import combinations
 import heapq
-from Robot import Robot
-# from robosar_task_allocator.Robot import Robot
+# from Robot import Robot
+from robosar_task_allocator.Robot import Robot
 
 
 class Environment:
@@ -55,7 +55,7 @@ class Environment:
 
     def fleet_update(self, agent_active_status):
         """
-        agent_active_status: {id, Bool}
+        agent_active_status: {id: Bool}
         """
         for agent, active in agent_active_status.items():
             if not active:

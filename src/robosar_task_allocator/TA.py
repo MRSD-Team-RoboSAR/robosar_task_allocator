@@ -5,8 +5,8 @@ Task Allocation classes
 """
 
 from abc import ABC, abstractmethod
-# import robosar_task_allocator.mTSP_utils as mTSP_utils
-import mTSP_utils
+import robosar_task_allocator.mTSP_utils as mTSP_utils
+# import mTSP_utils
 import numpy as np
 import matplotlib.pyplot as plt
 
