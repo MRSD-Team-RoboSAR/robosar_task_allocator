@@ -63,6 +63,7 @@ def mtsp_allocator():
     rospy.wait_for_service('taskgen_getwaypts')
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
+    print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
 
     try:
