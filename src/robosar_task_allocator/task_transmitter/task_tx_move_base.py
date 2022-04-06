@@ -5,7 +5,11 @@
 from cgi import test
 import rospy
 import actionlib
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+#from robosar_controller import RobosarControllerAction, RobosarControllerGoal
+
+#from robosar_controller.srv import *
+from robosar_controller.msg import *
+
 import time
 
 class TaskTxMoveBase:
@@ -15,22 +19,23 @@ class TaskTxMoveBase:
         time.sleep(1)
         self.client_map = {}
         # Create action clients for each robot
-        for i in range(len(robots)):
+        for i in robots.keys():
             
             # Create an action client called "move_base" with action definition file "MoveBaseAction"
-            client = actionlib.SimpleActionClient(robots[i].name,MoveBaseAction)
+            print(robots[i].name)
+            client = actionlib.SimpleActionClient(robots[i].name,RobosarControllerAction)
 
             # Waits until the action server has started up and started listening for goals.
             if(client.wait_for_server(rospy.Duration(5))):
                 # Add it to client map
-                self.client_map[robots[i].id] = client
+                self.client_map[robots[i].name] = client
             else:
                 rospy.logwarn("[Task_Alloc_Tx] Could not create client for {}".format(robots[i].name))
 
     def setGoal(self,robot_id,task):
         if robot_id in self.client_map:
             # Creates a new goal with the MoveBaseGoal constructor
-            goal = MoveBaseGoal()
+            goal = RobosarControllerGoal()
             goal.target_pose.header.frame_id = "map"
             goal.target_pose.header.stamp = rospy.Time.now()
 

@@ -27,6 +27,7 @@ from robosar_messages.msg import *
 from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
 import robosar_task_allocator.utils as utils
+import time
 
 rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
@@ -46,7 +47,7 @@ def status_callback(msg):
         for a in active_agents:
             agent_active_status[int(a[-1])] = True
         # update fleet
-        env.fleet_update(agent_active_status)
+        # env.fleet_update(agent_active_status)
 
     except rospy.ServiceException as e:
         ROS_ERROR("Agent status service call failed: %s" % e)
@@ -87,7 +88,7 @@ def mtsp_allocator():
     print('done')
 
     # Get active agents
-    rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
+    # rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
     rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
     try:
         print("calling service")
@@ -107,8 +108,7 @@ def mtsp_allocator():
     env = Environment(nodes[:n, :], adj)
 
     # Create robots
-    id_list = [0, 1]
-    for id in id_list:
+    for id in agent_active_status:
         env.add_robot(id, 0)
 
     print('routing')
@@ -132,39 +132,46 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
+    publish_first = True
+
     while not rospy.is_shutdown():
         names = []
         starts = []
         goals = []
 
         for robot in env.robots.values():
-            status = transmitter.getStatus(robot.id)
+            status = transmitter.getStatus(robot.name)
+            print(status)
             if (status == GoalStatus.SUCCEEDED and robot.next is not robot.prev):
                 solver.reached(robot.id, robot.next)
-                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+                # transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 print(env.visited)
-            elif (status == GoalStatus.LOST):
+            elif (status == GoalStatus.LOST and publish_first):
                 solver.assign(robot.id, robot.prev)
-                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+                # transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+                publish_first = False
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
 
         # publish tasks
         if names:
+            print("publishing")
             task_msg = task_allocation()
             task_msg.id = names
             task_msg.startx = [s[0] for s in starts]
             task_msg.starty = [s[1] for s in starts]
             task_msg.goalx = [g[0] for g in goals]
             task_msg.goaly = [g[1] for g in goals]
+            time.sleep(1)
             task_pub.publish(task_msg)
+            time.sleep(1)
 
         rate.sleep()
 
