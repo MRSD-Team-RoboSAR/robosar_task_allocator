@@ -38,11 +38,11 @@ class Simulation:
         # simulate until all tasks are completed
         while len(self.env.visited) < self.env.num_nodes and self.t_step < self.max_steps:
             # deactivate robot
-            # if self.t_step == 10:
-            #     self.deactivate_robot(3)
-            #     self.solver.calculate_mtsp(False)
-            #     for id in self.env.robots:
-            #         self.solver.assign(id, self.env.robots[id].prev)
+            if self.t_step == 10:
+                self.deactivate_robot(3)
+                self.solver.calculate_mtsp(False)
+                for id in self.env.robots:
+                    self.solver.assign(id, self.env.robots[id].prev)
 
             # move robots
             self.move()

@@ -33,7 +33,7 @@ def create_random_graph(n, env_size):
 
 if __name__ == '__main__':
     # Create graph
-    n = 40
+    n = 20
     make_graph = False
     downsample = 5
     # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     env = Environment(nodes[:n,:], adj)
 
     # Create robots
-    id_list = [1,2,3,4,5,6,7,8]
+    id_list = [1,2,3]
     for id in id_list:
         env.add_robot(id, 0)
 

@@ -28,11 +28,11 @@ from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
 import robosar_task_allocator.utils as utils
 
-
 rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
+
 
 def status_callback(msg):
     rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
@@ -51,17 +51,19 @@ def status_callback(msg):
     except rospy.ServiceException as e:
         ROS_ERROR("Agent status service call failed: %s" % e)
 
+
 def mtsp_allocator():
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
     # Get map
-    ROS_INFO("Waiting for map")
+    print("Waiting for map")
     map_msg = rospy.wait_for_message("/map", OccupancyGrid)
-    ROS_INFO("Map received")
+    print("Map received")
     # Get waypoints
     rospy.wait_for_service('taskgen_getwaypts')
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
+    print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
 
     try:
@@ -69,13 +71,12 @@ def mtsp_allocator():
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
-        nodes = np.reshape(nodes, (-1,2))
+        nodes = np.reshape(nodes, (-1, 2))
         # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
         print(nodes)
     except rospy.ServiceException as e:
         ROS_ERROR("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
-
 
     # Create graph
     n = nodes.shape[0]
@@ -100,13 +101,14 @@ def mtsp_allocator():
     except rospy.ServiceException as e:
         ROS_ERROR("Agent status service call failed: %s" % e)
         raise Exception("Agent status service call failed")
-    
+
     # Create environment
     # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))
-    env = Environment(nodes[:n,:], adj)
+    env = Environment(nodes[:n, :], adj)
 
     # Create robots
-    for id in agent_active_status:
+    id_list = [0, 1]
+    for id in id_list:
         env.add_robot(id, 0)
 
     print('routing')
@@ -115,7 +117,6 @@ def mtsp_allocator():
     print('done')
 
     # plot
-    # utils.plot_pgm(filename)
     utils.plot_pgm_data(data)
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
@@ -125,7 +126,7 @@ def mtsp_allocator():
     # Create transmitter object
     transmitter = TaskTxMoveBase(env.robots)
 
-    rate = rospy.Rate(10) # 10hz
+    rate = rospy.Rate(10)  # 10hz
     rospy.loginfo('[Task_Alloc_mTSP] Buckle up! Running mTSP allocator!')
 
     # task publisher
@@ -138,14 +139,16 @@ def mtsp_allocator():
 
         for robot in env.robots.values():
             status = transmitter.getStatus(robot.id)
-            if(status==GoalStatus.SUCCEEDED and robot.next is not robot.prev):
+            if (status == GoalStatus.SUCCEEDED and robot.next is not robot.prev):
                 solver.reached(robot.id, robot.next)
+                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 print(env.visited)
-            elif(status==GoalStatus.LOST):
+            elif (status == GoalStatus.LOST):
                 solver.assign(robot.id, robot.prev)
+                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
@@ -164,6 +167,7 @@ def mtsp_allocator():
             task_pub.publish(task_msg)
 
         rate.sleep()
+
 
 if __name__ == '__main__':
     try:

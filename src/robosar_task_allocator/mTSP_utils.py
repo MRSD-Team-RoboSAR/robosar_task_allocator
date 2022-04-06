@@ -79,7 +79,7 @@ def solve(data):
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.seconds = 10
+    search_parameters.time_limit.seconds = 5
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)

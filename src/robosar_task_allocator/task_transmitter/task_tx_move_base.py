@@ -18,7 +18,7 @@ class TaskTxMoveBase:
         for i in range(len(robots)):
             
             # Create an action client called "move_base" with action definition file "MoveBaseAction"
-            client = actionlib.SimpleActionClient(robots[i].name+'/move_base',MoveBaseAction)
+            client = actionlib.SimpleActionClient(robots[i].name,MoveBaseAction)
 
             # Waits until the action server has started up and started listening for goals.
             if(client.wait_for_server(rospy.Duration(5))):
