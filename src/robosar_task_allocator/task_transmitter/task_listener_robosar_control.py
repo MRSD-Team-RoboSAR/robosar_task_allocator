@@ -29,13 +29,20 @@ class TaskListenerRobosarControl:
 
             status_keeper = self.ControllerStatusKeeper(robots[i].name)
 
-            self.status_map[robots[i].id] = status_keeper
+            self.status_map[robots[i].name] = status_keeper
+
+    def setBusyStatus(self,robot_id):
+        if robot_id in self.status_map:
+            print("Set busy for {}".format(robot_id))
+            self.status_map[robot_id].setBusyStatus()
+        else:
+            rospy.logwarn("[Task_Alloc_Tx] GetStat Missing client for {}".format(robot_id))
 
     def getStatus(self,robot_id):
         if robot_id in self.status_map:
             return self.status_map[robot_id].getStatus()
         else:
-            rospy.logwarn("[Task_Alloc_Tx] Missing client for {}".format(robot_id))
+            rospy.logwarn("[Task_Alloc_Tx] GetStat Missing client for {}".format(robot_id))
 
     def wait_for_execution(self,robot_id):
         if robot_id in self.client_map:
@@ -52,7 +59,11 @@ class TaskListenerRobosarControl:
 
             self.BUSY = 1
             self.IDLE = 2
+            self.GOAL_SENT = 3
             self.status = self.IDLE
+
+        def setBusyStatus(self):
+            self.status  = self.GOAL_SENT
 
         def getStatus(self):
             return self.status
@@ -61,12 +72,11 @@ class TaskListenerRobosarControl:
             if(data.status_list):
                 #print(data.status_list)
                 status = data.status_list[0].status
-                if(status==GoalStatus.LOST or status==GoalStatus.SUCCEEDED):
-                    self.status = self.IDLE
-                else:
+                if(status == GoalStatus.ACTIVE):
                     self.status = self.BUSY
-            else:
-                self.status = self.IDLE
+                elif(self.status!=self.GOAL_SENT and status == GoalStatus.SUCCEEDED):
+                    self.status = self.IDLE
+
 
             
 
