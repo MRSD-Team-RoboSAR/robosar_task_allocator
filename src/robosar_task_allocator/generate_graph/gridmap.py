@@ -206,7 +206,6 @@ class OccupancyGridMap:
     @staticmethod
     def from_data(data):
         data[data == -1] = 20
-        print(data)
         data = data/100.0
         gmap = OccupancyGridMap(data, 1)
         return gmap

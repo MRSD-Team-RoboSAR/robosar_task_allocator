@@ -28,6 +28,9 @@ def plot_pgm_data(data):
 def pixels_to_m(pixels, scale, origin):
     return [(pixels[0])*scale+origin[0], (pixels[1])*scale+origin[1]]
 
+def m_to_pixels(m, scale, origin):
+    return [(m[0]-origin[0])/scale, (m[1]-origin[1])/scale]
+
 def create_graph_from_file(filename, nodes, n, downsample = 1, save = False):
     im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
     dim = ((im.shape[1]+1) // downsample, (im.shape[0]+1) // downsample)
