@@ -5,9 +5,9 @@ Robot class
 """
 class Robot:
 
-    def __init__(self, id, start, prev):
+    def __init__(self, id, name, start, prev):
         self.id = id
-        self.name = 'agent' + str(self.id)
+        self.name = name + str(self.id)
         self.v = 15
         self.pos = [float(start[0]), float(start[1])]
         self.pos_prev = [float(start[0]), float(start[1])]

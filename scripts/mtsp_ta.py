@@ -109,7 +109,7 @@ def mtsp_allocator():
 
     # Create robots
     for id in agent_active_status:
-        env.add_robot(id, 0)
+        env.add_robot(id, "agent", 0)
 
     print('routing')
     solver = TA_mTSP()
@@ -123,8 +123,8 @@ def mtsp_allocator():
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
     plt.show()
 
-    # Create transmitter object
-    transmitter = TaskTxMoveBase(env.robots)
+    # Create listener object
+    listener = TaskListenerRobosarControl(env.robots)
 
     rate = rospy.Rate(10)  # 10hz
     rospy.loginfo('[Task_Alloc_mTSP] Buckle up! Running mTSP allocator!')
@@ -132,30 +132,21 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    publish_first = True
-
     while not rospy.is_shutdown():
         names = []
         starts = []
         goals = []
 
         for robot in env.robots.values():
-            status = transmitter.getStatus(robot.name)
+            status = listener.getStatus(robot.name)
             print(status)
-            if (status == GoalStatus.SUCCEEDED and robot.next is not robot.prev):
+            if (status == 2 and robot.next is not robot.prev):
                 solver.reached(robot.id, robot.next)
-                # transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+                # listener.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 print(env.visited)
-            elif (status == GoalStatus.LOST and publish_first):
-                solver.assign(robot.id, robot.prev)
-                # transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
-                names.append(robot.name)
-                starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
-                goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
-                publish_first = False
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break

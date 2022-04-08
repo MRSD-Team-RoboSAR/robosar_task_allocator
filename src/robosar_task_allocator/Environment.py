@@ -42,12 +42,12 @@ class Environment:
             self.visited.add(r.prev)
         self.frontier = set()
 
-    def add_robot(self, id, start):
+    def add_robot(self, id, name, start):
         """
         id: int
         start: int node number
         """
-        robot = Robot(id, self.nodes[start], start)
+        robot = Robot(id, name, self.nodes[start], start)
         self.robots[id] = robot
         self.num_robots = len(self.robots)
         self.id_dict[id] = self.num_robots-1

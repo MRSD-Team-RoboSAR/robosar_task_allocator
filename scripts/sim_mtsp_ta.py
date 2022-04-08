@@ -109,7 +109,7 @@ def mtsp_allocator():
     # Create robots
     id_list = [0, 1, 2]
     for id in id_list:
-        env.add_robot(id, 0)
+        env.add_robot(id, "robot_", 0)
 
     print('routing')
     solver = TA_mTSP()
@@ -123,8 +123,8 @@ def mtsp_allocator():
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
     plt.show()
 
-    # Create transmitter object
-    transmitter = TaskTxMoveBase(env.robots)
+    # Create listener object
+    listener = TaskListenerRobosarControl(env.robots)
 
     rate = rospy.Rate(10)  # 10hz
     rospy.loginfo('[Task_Alloc_mTSP] Buckle up! Running mTSP allocator!')
@@ -138,20 +138,14 @@ def mtsp_allocator():
         goals = []
 
         for robot in env.robots.values():
-            status = transmitter.getStatus(robot.id)
-            if (status == GoalStatus.SUCCEEDED and robot.next is not robot.prev):
+            status = listener.getStatus(robot.name)
+            print(status)
+            if (status == 2 and robot.next is not robot.prev):
                 solver.reached(robot.id, robot.next)
-                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 print(env.visited)
-            elif (status == GoalStatus.LOST):
-                solver.assign(robot.id, robot.prev)
-                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
-                names.append(robot.name)
-                starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
-                goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
