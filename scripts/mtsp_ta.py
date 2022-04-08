@@ -15,7 +15,7 @@ import rospy
 from robosar_task_allocator.Environment import Environment
 from robosar_task_allocator.Robot import Robot
 from robosar_task_allocator.TA import *
-from robosar_task_allocator.task_transmitter.task_tx_move_base import TaskTxMoveBase
+from robosar_task_allocator.task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 import numpy as np
 import pickle
 import rospkg
@@ -28,6 +28,7 @@ from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
 import robosar_task_allocator.utils as utils
 import time
+import tf
 
 rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
@@ -146,6 +147,7 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
+    publish_first = True
 
     while not rospy.is_shutdown():
         names = []
@@ -154,14 +156,18 @@ def mtsp_allocator():
 
         for robot in env.robots.values():
             status = listener.getStatus(robot.name)
-            print(status)
-            if status == 2 and (robot.next != robot.prev):
-                solver.reached(robot.id, robot.next)
-                # listener.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+            #print('status {} {}'.format(status,robot.name))
+            if (status == 2 and robot.next is not robot.prev):
+                if publish_first:
+                    solver.assign(robot.id, robot.prev)
+                else:
+                    solver.reached(robot.id, robot.next)
+                listener.setBusyStatus(robot.name)
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 print(env.visited)
+        publish_first = False
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
@@ -178,6 +184,7 @@ def mtsp_allocator():
             time.sleep(1)
             task_pub.publish(task_msg)
             time.sleep(1)
+
 
         rate.sleep()
 
