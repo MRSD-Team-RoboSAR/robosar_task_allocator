@@ -78,13 +78,13 @@ def mtsp_allocator():
     print("Map received")
 
     # Get waypoints
+    print("calling task generation service")
     rospy.wait_for_service('taskgen_getwaypts')
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
     try:
-        print("calling service")
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
@@ -97,7 +97,7 @@ def mtsp_allocator():
     listener = tf.TransformListener()
     robot_init = []
     init_order = []
-    listener.waitForTransform('map', "robot_0" + '/base_link', rospy.Time(), rospy.Duration(1.0))
+    listener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
     for name in agent_active_status:
         now = rospy.Time.now()
         listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
