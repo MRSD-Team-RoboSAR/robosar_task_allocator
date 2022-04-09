@@ -154,11 +154,12 @@ def mtsp_allocator():
             status = listener.getStatus(robot.name)
             if status == 2 and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
-                listener.setBusyStatus(robot.name)
-                names.append(robot.name)
-                starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
-                goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
-                print(env.visited)
+                if robot.next != robot.prev:
+                    listener.setBusyStatus(robot.name)
+                    names.append(robot.name)
+                    starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
+                    goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+                    print(env.visited)
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
