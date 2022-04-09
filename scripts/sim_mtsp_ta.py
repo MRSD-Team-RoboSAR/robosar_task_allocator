@@ -163,7 +163,7 @@ def mtsp_allocator():
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
-                    print(env.visitd)
+                    print(env.visited)
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break

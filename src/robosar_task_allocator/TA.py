@@ -180,9 +180,6 @@ class TA_mTSP(TA):
         adj_new = np.zeros((len(adj)+self.env.num_robots, len(adj)+self.env.num_robots))
         adj_new[:len(adj), :len(adj)] = adj
         for i in range(self.env.num_robots):
-            for j in starts:
-                adj_new[len(adj)+i, j] = 10e4
-                adj_new[j, len(adj) + i] = 10e4
             for j in range(i+1, self.env.num_robots):
                 adj_new[len(adj) + i, len(adj)+j] = 10e4
                 adj_new[len(adj)+j, len(adj) + i] = 10e4
