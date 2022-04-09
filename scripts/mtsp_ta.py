@@ -106,8 +106,6 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
-    print(robot_init)
-    print(nodes)
     nodes = np.vstack((robot_init, nodes))
 
     # Create graph
@@ -154,8 +152,7 @@ def mtsp_allocator():
 
         for robot in env.robots.values():
             status = listener.getStatus(robot.name)
-            #print('status {} {}'.format(status,robot.name))
-            if (status == 2 and robot.next is not robot.prev):
+            if status == 2 and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
                 listener.setBusyStatus(robot.name)
                 names.append(robot.name)
@@ -178,7 +175,6 @@ def mtsp_allocator():
             time.sleep(1)
             task_pub.publish(task_msg)
             time.sleep(1)
-
 
         rate.sleep()
 
