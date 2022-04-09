@@ -94,7 +94,9 @@ class TA_mTSP(TA):
 
     def reached(self, id, curr_node):
         r = self.env.robots[id]
-        if r.prev is not curr_node:
+        if r.next is None:
+            self.assign(id, curr_node)
+        elif r.prev is not curr_node:
             r.prev = curr_node
             r.visited.append(curr_node)
             self.env.frontier.remove(curr_node)

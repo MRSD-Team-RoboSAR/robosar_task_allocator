@@ -156,19 +156,13 @@ def mtsp_allocator():
 
         for robot in env.robots.values():
             status = transmitter.getStatus(robot.id)
-            if (status == GoalStatus.SUCCEEDED and robot.next is not robot.prev):
+            if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and robot.next is not robot.prev:
                 solver.reached(robot.id, robot.next)
                 transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 names.append(robot.name)
                 starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                 goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                 print(env.visited)
-            elif (status == GoalStatus.LOST):
-                solver.assign(robot.id, robot.prev)
-                transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
-                names.append(robot.name)
-                starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
-                goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
