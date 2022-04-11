@@ -48,7 +48,7 @@ def status_callback(msg):
         for a in active_agents:
             agent_active_status[int(a[-1])] = True
         # update fleet
-        # env.fleet_update(agent_active_status)
+        env.fleet_update(agent_active_status)
 
     except rospy.ServiceException as e:
         ROS_ERROR("Agent status service call failed: %s" % e)
@@ -58,10 +58,10 @@ def mtsp_allocator():
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
     # Get active agents
+    print("calling agent status service")
     # rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
     rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
     try:
-        print("calling service")
         get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
         resp1 = get_status()
         active_agents = resp1.agents_active
