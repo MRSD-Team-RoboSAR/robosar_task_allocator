@@ -130,7 +130,7 @@ def mtsp_allocator():
 
     print('routing')
     solver = TA_mTSP()
-    solver.init(env)
+    solver.init(env, 5)
     print('done')
 
     # plot

@@ -62,7 +62,9 @@ if __name__ == '__main__':
     for idx, r in enumerate(env.robots.values()):
         plt.plot([r.pos_prev[0], r.pos[0]], [r.pos_prev[1], r.pos[1]], colors[idx] + 'o')
 
-    sim = Simulation(env, TA_mTSP(), 1, 300, colors)
+    solver = TA_mTSP()
+    solver.init(env, 15)
+    sim = Simulation(env, solver, 1, 300, colors)
     robot_paths = sim.simulate()
 
     for i, path in enumerate(robot_paths):

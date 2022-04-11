@@ -20,7 +20,6 @@ class Simulation:
         """
         self.env = env
         self.solver = solver
-        self.solver.init(self.env)
         self.dt = dt
         self.t = 0
         self.t_step = 0

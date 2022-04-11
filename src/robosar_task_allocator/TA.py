@@ -87,7 +87,8 @@ class TA_mTSP(TA):
     TA_mTSP: Multiple Traveling Salesman Problem task allocator
     """
 
-    def init(self, env):
+    def init(self, env, timeout):
+        self.timeout = timeout
         self.env = env
         self.tours = self.calculate_mtsp(True)
         self.objective_value = [0] * len(self.env.robots)
@@ -161,7 +162,7 @@ class TA_mTSP(TA):
             data['ends'] = [len(to_visit)+i for i in range(self.env.num_robots)]
         data['num_vehicles'] = len(self.env.robots)
         data['distance_matrix'] = adj
-        tours = mTSP_utils.solve(data)
+        tours = mTSP_utils.solve(data, self.timeout)
         
         if not initial:
             self.tours = [[to_visit[i] for i in tour] for tour in tours]
