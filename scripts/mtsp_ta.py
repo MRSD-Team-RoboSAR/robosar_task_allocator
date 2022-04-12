@@ -176,7 +176,11 @@ def mtsp_allocator():
             task_msg.starty = [s[1] for s in starts]
             task_msg.goalx = [g[0] for g in goals]
             task_msg.goaly = [g[1] for g in goals]
+            while task_pub.get_num_connections() == 0:
+                rospy.loginfo("Waiting for subscriber :")
+                rospy.sleep(1)
             task_pub.publish(task_msg)
+            rospy.sleep(1)
             for robot in env.robots.values():
                 if robot.next != robot.prev:
                     finished[env.id_dict[robot.id]] = 0
