@@ -51,7 +51,7 @@ def status_callback(msg):
         env.fleet_update(agent_active_status)
 
     except rospy.ServiceException as e:
-        ROS_ERROR("Agent status service call failed: %s" % e)
+        print("Agent status service call failed: %s" % e)
 
 
 def mtsp_allocator():
@@ -70,7 +70,7 @@ def mtsp_allocator():
         print("{} agents active".format(len(agent_active_status)))
         assert len(agent_active_status) > 0
     except rospy.ServiceException as e:
-        ROS_ERROR("Agent status service call failed: %s" % e)
+        print("Agent status service call failed: %s" % e)
         raise Exception("Agent status service call failed")
 
     # Get map
@@ -92,7 +92,7 @@ def mtsp_allocator():
         nodes = np.reshape(nodes, (-1, 2))
         # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
     except rospy.ServiceException as e:
-        ROS_ERROR("Task generation service call failed: %s" % e)
+        print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
 
     listener = tf.TransformListener()
