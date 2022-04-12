@@ -33,7 +33,7 @@ def create_random_graph(n, env_size):
 
 if __name__ == '__main__':
     # Create graph
-    n = 20
+    n = 40
     make_graph = False
     downsample = 5
     # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
@@ -54,10 +54,10 @@ if __name__ == '__main__':
     # Create robots
     id_list = [1,2,3]
     for id in id_list:
-        env.add_robot(id, 0)
+        env.add_robot(id, "robot_"+str(id), 0)
 
     # Plotting
-    colors = ['r', 'b', 'm', 'c', 'y', 'g', 'k', 'r']
+    colors = ['r', 'b', 'm', 'c', 'y', 'g', 'k']
     plt.plot(nodes[:n,0], nodes[:n,1], 'ko', zorder=100)
     for idx, r in enumerate(env.robots.values()):
         plt.plot([r.pos_prev[0], r.pos[0]], [r.pos_prev[1], r.pos[1]], colors[idx] + 'o')

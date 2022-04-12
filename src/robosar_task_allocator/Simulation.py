@@ -37,11 +37,11 @@ class Simulation:
         # simulate until all tasks are completed
         while len(self.env.visited) < self.env.num_nodes and self.t_step < self.max_steps:
             # deactivate robot
-            if self.t_step == 10:
-                self.deactivate_robot(3)
-                self.solver.calculate_mtsp(False)
-                for id in self.env.robots:
-                    self.solver.assign(id, self.env.robots[id].prev)
+            # if self.t_step == 10:
+            #     self.deactivate_robot(3)
+            #     self.solver.calculate_mtsp(False)
+            #     for id in self.env.robots:
+            #         self.solver.assign(id, self.env.robots[id].prev)
 
             # move robots
             self.move()
@@ -70,25 +70,29 @@ class Simulation:
         """
         Move robot
         """
+        inactive = []
         for id, r in self.env.robots.items():
-            assert r.next
-            goal = self.env.nodes[r.next]
-            dir = np.array([goal[0]-r.pos[0], goal[1]-r.pos[1]])
-            dist = np.linalg.norm(dir)
-            if dist > 0:
-                dir = dir/dist
-                dx = r.v*self.dt
-                if dx > dist:
-                    r.pos[0] = goal[0]
-                    r.pos[1] = goal[1]
-                    self.solver.reached(id, r.next)
+            if r.next:
+                goal = self.env.nodes[r.next]
+                dir = np.array([goal[0]-r.pos[0], goal[1]-r.pos[1]])
+                dist = np.linalg.norm(dir)
+                if dist > 0:
+                    dir = dir/dist
+                    dx = r.v*self.dt
+                    if dx > dist:
+                        r.pos[0] = goal[0]
+                        r.pos[1] = goal[1]
+                        self.solver.reached(id, r.next)
+                    else:
+                        x_next = r.pos + dir*dx
+                        r.pos[0] = x_next[0]
+                        r.pos[1] = x_next[1]
                 else:
-                    x_next = r.pos + dir*dx
-                    r.pos[0] = x_next[0]
-                    r.pos[1] = x_next[1]
+                    self.solver.reached(id, r.next)
             else:
-                self.solver.reached(id, r.next)
-
+                inactive.append(id)
+        for id in inactive:
+            self.env.remove_robot(id)
 
     def deactivate_robot(self, id):
         """

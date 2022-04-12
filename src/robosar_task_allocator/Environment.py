@@ -53,6 +53,13 @@ class Environment:
         self.id_dict[id] = self.num_robots-1
         self.visited.add(robot.prev)
 
+    def remove_robot(self, agent):
+        self.robots.pop(agent)
+        self.id_dict.pop(agent)
+        for idx, id in enumerate(self.robots.keys()):
+            self.id_dict[id] = idx
+        self.num_robots = len(self.robots)
+
     def fleet_update(self, agent_active_status):
         """
         agent_active_status: {id: Bool}

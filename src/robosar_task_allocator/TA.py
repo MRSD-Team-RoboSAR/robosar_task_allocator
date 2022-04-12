@@ -144,7 +144,7 @@ class TA_mTSP(TA):
         return adj, to_visit
 
 
-    def calculate_mtsp(self, initial):
+    def calculate_mtsp(self, initial = True):
         """
         Uses Google OR-Tools VRP Library to solve for optimal tours
         initial: Bool
