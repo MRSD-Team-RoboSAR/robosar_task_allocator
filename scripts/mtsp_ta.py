@@ -145,7 +145,7 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    finished = [0 for i in robots]
+    finished = [0 for i in env.robots]
     names = []
     starts = []
     goals = []
@@ -176,9 +176,7 @@ def mtsp_allocator():
             task_msg.starty = [s[1] for s in starts]
             task_msg.goalx = [g[0] for g in goals]
             task_msg.goaly = [g[1] for g in goals]
-            time.sleep(1)
             task_pub.publish(task_msg)
-            time.sleep(1)
             for robot in env.robots.values():
                 if robot.next != robot.prev:
                     finished[env.id_dict[robot.id]] = 0

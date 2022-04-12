@@ -19,10 +19,9 @@ class TaskListenerRobosarControl:
     def __init__(self, robots):
         #rospy.init_node('task_allocator_tx')
         time.sleep(1)
-
         self.status_map = {}
         # Create status subscribers for each robot
-        for i in range(len(robots)):
+        for i in robots:
             
             print(robots[i].name)
             #client = actionlib.SimpleActionClient(robots[i].name,RobosarControllerAction)
