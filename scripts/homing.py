@@ -30,22 +30,23 @@ def send_homing():
         raise Exception("Agent status service call failed")
 
     # get robot positions
+    robot_init=[]
     listener = tf.TransformListener()
     listener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
     for name in agent_active_status:
         now = rospy.Time.now()
         listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
         (trans, rot) = listener.lookupTransform('map', name + '/base_link', now)
-        robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
+        robot_init.append([trans[0], trans[1]])
 
     # fill in message
     for i, name in enumerate(agent_active_status.keys()):
         names.append(name)
         starts.append(robot_init[i])
         if i%2 == 0:
-            goals.append([0+0.2*((i+1)//2), 0])
+            goals.append([0+0.6*((i+1)//2), 0])
         else:
-            goals.append([0 - 0.2 * ((i+1)//2), 0])
+            goals.append([0 - 0.6 * ((i+1)//2), 0])
 
     # publish
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
