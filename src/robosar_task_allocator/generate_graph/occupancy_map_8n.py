@@ -25,6 +25,7 @@ def createGraph(n, nodes,gmap):
         for j in range(i+1,n):
             start_n = (nodes[i,0], nodes[i,1])
             stop_n = (nodes[j,0], nodes[j,1])
+            print(stop_n)
             path,path_px,cost = a_star(start_n, stop_n, gmap, movement='8N')
 
             if path:

@@ -92,6 +92,7 @@ def mtsp_allocator():
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1, 2))
+        # nodes = np.fliplr(nodes)
         # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
@@ -109,12 +110,16 @@ def mtsp_allocator():
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
     print(nodes)
+    utils.plot_pgm_data(data)
+    plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+    plt.show()
     nodes = np.vstack((robot_init, nodes))
     print("Nodes received: {}".format(nodes))
 
+
     # Create graph
     n = nodes.shape[0]
-    downsample = 5
+    downsample = 1
     # filename = maps_path+'/maps/willow-full.pgm'
     print('creating graph')
     adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
