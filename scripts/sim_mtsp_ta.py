@@ -51,7 +51,7 @@ def status_callback(msg):
         env.fleet_update(agent_active_status)
 
     except rospy.ServiceException as e:
-        ROS_ERROR("Agent status service call failed: %s" % e)
+        print("Agent status service call failed: %s" % e)
 
 
 def mtsp_allocator():
@@ -84,6 +84,7 @@ def mtsp_allocator():
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
+    print((map_msg.info.height, map_msg.info.width))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
     try:
         print("calling service")
@@ -93,7 +94,7 @@ def mtsp_allocator():
         nodes = np.reshape(nodes, (-1, 2))
         # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
     except rospy.ServiceException as e:
-        ROS_ERROR("Task generation service call failed: %s" % e)
+        print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
 
     listener = tf.TransformListener()
@@ -105,12 +106,11 @@ def mtsp_allocator():
         listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
         (trans, rot) = listener.lookupTransform('map', name + '/base_link', now)
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
-        print([trans[0], trans[1]])
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
-    print(robot_init)
     print(nodes)
     nodes = np.vstack((robot_init, nodes))
+    print("Nodes received: {}".format(nodes))
 
     # Create graph
     n = nodes.shape[0]
@@ -161,8 +161,7 @@ def mtsp_allocator():
             if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
                 finished[env.id_dict[robot.id]] = 1
-                print(finished)
-                if robot.next != robot.prev:
+                if robot.next and robot.next != robot.prev:
                     transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
@@ -190,7 +189,6 @@ def mtsp_allocator():
             names = []
             starts = []
             goals = []
-            print(finished)
 
         rate.sleep()
 
