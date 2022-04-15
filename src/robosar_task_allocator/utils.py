@@ -9,10 +9,10 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage.measure
-from generate_graph import occupancy_map_8n
-from generate_graph.gridmap import OccupancyGridMap
-# from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
-# from robosar_task_allocator.generate_graph import occupancy_map_8n
+# from generate_graph import occupancy_map_8n
+# from generate_graph.gridmap import OccupancyGridMap
+from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
+from robosar_task_allocator.generate_graph import occupancy_map_8n
 
 def plot_pgm(filename):
     im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
@@ -26,7 +26,10 @@ def plot_pgm_data(data):
     plt.draw()
 
 def pixels_to_m(pixels, scale, origin):
-    return [(pixels[0]+origin[0])*scale, (pixels[1]+origin[1])*scale]
+    return [(pixels[0])*scale+origin[0], (pixels[1])*scale+origin[1]]
+
+def m_to_pixels(m, scale, origin):
+    return [(m[0]-origin[0])/scale, (m[1]-origin[1])/scale]
 
 def create_graph_from_file(filename, nodes, n, downsample = 1, save = False):
     im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)

@@ -5,8 +5,8 @@ Task Allocation classes
 """
 
 from abc import ABC, abstractmethod
-# import robosar_task_allocator.mTSP_utils as mTSP_utils
-import mTSP_utils
+import robosar_task_allocator.mTSP_utils as mTSP_utils
+# import mTSP_utils
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -87,14 +87,17 @@ class TA_mTSP(TA):
     TA_mTSP: Multiple Traveling Salesman Problem task allocator
     """
 
-    def init(self, env):
+    def init(self, env, timeout):
+        self.timeout = timeout
         self.env = env
         self.tours = self.calculate_mtsp(True)
         self.objective_value = [0] * len(self.env.robots)
 
     def reached(self, id, curr_node):
         r = self.env.robots[id]
-        if r.prev is not curr_node:
+        if r.next is None:
+            self.assign(id, curr_node)
+        elif r.prev is not curr_node:
             r.prev = curr_node
             r.visited.append(curr_node)
             self.env.frontier.remove(curr_node)
@@ -141,7 +144,7 @@ class TA_mTSP(TA):
         return adj, to_visit
 
 
-    def calculate_mtsp(self, initial):
+    def calculate_mtsp(self, initial = True):
         """
         Uses Google OR-Tools VRP Library to solve for optimal tours
         initial: Bool
@@ -159,7 +162,7 @@ class TA_mTSP(TA):
             data['ends'] = [len(to_visit)+i for i in range(self.env.num_robots)]
         data['num_vehicles'] = len(self.env.robots)
         data['distance_matrix'] = adj
-        tours = mTSP_utils.solve(data)
+        tours = mTSP_utils.solve(data, self.timeout)
         
         if not initial:
             self.tours = [[to_visit[i] for i in tour] for tour in tours]
@@ -178,9 +181,6 @@ class TA_mTSP(TA):
         adj_new = np.zeros((len(adj)+self.env.num_robots, len(adj)+self.env.num_robots))
         adj_new[:len(adj), :len(adj)] = adj
         for i in range(self.env.num_robots):
-            for j in starts:
-                adj_new[len(adj)+i, j] = 10e4
-                adj_new[j, len(adj) + i] = 10e4
             for j in range(i+1, self.env.num_robots):
                 adj_new[len(adj) + i, len(adj)+j] = 10e4
                 adj_new[len(adj)+j, len(adj) + i] = 10e4

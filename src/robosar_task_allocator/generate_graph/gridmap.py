@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from .utils import png_to_ogm
 
 class OccupancyGridMap:
-    def __init__(self, data_array, cell_size, occupancy_threshold=0.14):
+    def __init__(self, data_array, cell_size, occupancy_threshold=0.19):
         """
         Creates a grid map
         :param data_array: a 2D array with a value of occupancy per cell (values from 0 - 1)
@@ -206,7 +206,6 @@ class OccupancyGridMap:
     @staticmethod
     def from_data(data):
         data[data == -1] = 20
-        print(data)
         data = data/100.0
         gmap = OccupancyGridMap(data, 1)
         return gmap

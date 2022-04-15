@@ -6,8 +6,8 @@ Environment class
 import numpy as np
 from itertools import combinations
 import heapq
-from Robot import Robot
-# from robosar_task_allocator.Robot import Robot
+# from Robot import Robot
+from robosar_task_allocator.Robot import Robot
 
 
 class Environment:
@@ -42,20 +42,27 @@ class Environment:
             self.visited.add(r.prev)
         self.frontier = set()
 
-    def add_robot(self, id, start):
+    def add_robot(self, id, name, start):
         """
         id: int
         start: int node number
         """
-        robot = Robot(id, self.nodes[start], start)
+        robot = Robot(id, name, self.nodes[start], start)
         self.robots[id] = robot
         self.num_robots = len(self.robots)
         self.id_dict[id] = self.num_robots-1
         self.visited.add(robot.prev)
 
+    def remove_robot(self, agent):
+        self.robots.pop(agent)
+        self.id_dict.pop(agent)
+        for idx, id in enumerate(self.robots.keys()):
+            self.id_dict[id] = idx
+        self.num_robots = len(self.robots)
+
     def fleet_update(self, agent_active_status):
         """
-        agent_active_status: {id, Bool}
+        agent_active_status: {id: Bool}
         """
         for agent, active in agent_active_status.items():
             if not active:

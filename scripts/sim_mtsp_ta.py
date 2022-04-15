@@ -12,10 +12,12 @@ Task Allocation node: main script to be executed.
 """
 
 import rospy
+import tf
 from robosar_task_allocator.Environment import Environment
 from robosar_task_allocator.Robot import Robot
 from robosar_task_allocator.TA import *
-from robosar_task_allocator.task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
+from robosar_task_allocator.task_transmitter.task_tx_move_base import TaskTxMoveBase
+# from robosar_task_allocator.task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 import numpy as np
 import pickle
 import rospkg
@@ -27,8 +29,6 @@ from robosar_messages.msg import *
 from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
 import robosar_task_allocator.utils as utils
-import time
-import tf
 
 rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
@@ -58,20 +58,7 @@ def mtsp_allocator():
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
     # Get active agents
-    print("calling agent status service")
-    # rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
-    rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
-    try:
-        get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
-        resp1 = get_status()
-        active_agents = resp1.agents_active
-        for a in active_agents:
-            agent_active_status[a] = True
-        print("{} agents active".format(len(agent_active_status)))
-        assert len(agent_active_status) > 0
-    except rospy.ServiceException as e:
-        print("Agent status service call failed: %s" % e)
-        raise Exception("Agent status service call failed")
+    agent_active_status = {"robot_0": True, "robot_1": True, "robot_2": True}
 
     # Get map
     print("Waiting for map")
@@ -79,17 +66,18 @@ def mtsp_allocator():
     print("Map received")
 
     # Get waypoints
-    print("calling task generation service")
     rospy.wait_for_service('taskgen_getwaypts')
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
     try:
+        print("calling service")
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1, 2))
+        # nodes = np.fliplr(nodes)
         # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
@@ -98,7 +86,7 @@ def mtsp_allocator():
     listener = tf.TransformListener()
     robot_init = []
     init_order = []
-    listener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
+    listener.waitForTransform('map', "robot_0" + '/base_link', rospy.Time(), rospy.Duration(1.0))
     for name in agent_active_status:
         now = rospy.Time.now()
         listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
@@ -106,11 +94,16 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
+    utils.plot_pgm_data(data)
+    plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+    plt.show()
     nodes = np.vstack((robot_init, nodes))
+    print("Nodes received: {}".format(nodes))
+
 
     # Create graph
     n = nodes.shape[0]
-    downsample = 5
+    downsample = 1
     # filename = maps_path+'/maps/willow-full.pgm'
     print('creating graph')
     adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
@@ -137,7 +130,7 @@ def mtsp_allocator():
     plt.show()
 
     # Create listener object
-    listener = TaskListenerRobosarControl(env.robots)
+    transmitter = TaskTxMoveBase(env.robots)
 
     rate = rospy.Rate(10)  # 10hz
     rospy.loginfo('[Task_Alloc_mTSP] Buckle up! Running mTSP allocator!')
@@ -145,20 +138,17 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    finished = [0 for i in env.robots]
-    names = []
-    starts = []
-    goals = []
-
     while not rospy.is_shutdown():
+        names = []
+        starts = []
+        goals = []
 
         for robot in env.robots.values():
-            status = listener.getStatus(robot.name)
-            if status == 2 and (robot.next != robot.prev):
+            status = transmitter.getStatus(robot.id)
+            if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
-                finished[env.id_dict[robot.id]] = 1
                 if robot.next and robot.next != robot.prev:
-                    listener.setBusyStatus(robot.name)
+                    transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
@@ -168,7 +158,7 @@ def mtsp_allocator():
             break
 
         # publish tasks
-        if sum(finished) == len(env.robots):
+        if names:
             print("publishing")
             task_msg = task_allocation()
             task_msg.id = names
@@ -176,17 +166,9 @@ def mtsp_allocator():
             task_msg.starty = [s[1] for s in starts]
             task_msg.goalx = [g[0] for g in goals]
             task_msg.goaly = [g[1] for g in goals]
-            while task_pub.get_num_connections() == 0:
-                rospy.loginfo("Waiting for subscriber :")
-                rospy.sleep(1)
+            # time.sleep(1)
             task_pub.publish(task_msg)
-            rospy.sleep(1)
-            for robot in env.robots.values():
-                if robot.next != robot.prev:
-                    finished[env.id_dict[robot.id]] = 0
-            names = []
-            starts = []
-            goals = []
+            # time.sleep(1)
 
         rate.sleep()
 
