@@ -58,20 +58,6 @@ def mtsp_allocator():
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
     # Get active agents
-    # rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
-    # print("calling service")
-    # rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
-    # try:
-    #     get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
-    #     resp1 = get_status()
-    #     active_agents = resp1.agents_active
-    #     for a in active_agents:
-    #         agent_active_status[a] = True
-    #     print("{} agents active".format(len(agent_active_status)))
-    #     assert len(agent_active_status) > 0
-    # except rospy.ServiceException as e:
-    #     ROS_ERROR("Agent status service call failed: %s" % e)
-    #     raise Exception("Agent status service call failed")
     agent_active_status = {"robot_0": True, "robot_1": True, "robot_2": True}
 
     # Get map
@@ -84,7 +70,6 @@ def mtsp_allocator():
     scale = map_msg.info.resolution
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
-    print((map_msg.info.height, map_msg.info.width))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
     try:
         print("calling service")
@@ -109,7 +94,6 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
-    print(nodes)
     utils.plot_pgm_data(data)
     plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
     plt.show()
@@ -154,18 +138,15 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    finished = [0 for i in env.robots]
-    names = []
-    starts = []
-    goals = []
-
     while not rospy.is_shutdown():
+        names = []
+        starts = []
+        goals = []
 
         for robot in env.robots.values():
             status = transmitter.getStatus(robot.id)
             if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
-                finished[env.id_dict[robot.id]] = 1
                 if robot.next and robot.next != robot.prev:
                     transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     names.append(robot.name)
@@ -177,7 +158,7 @@ def mtsp_allocator():
             break
 
         # publish tasks
-        if sum(finished) == len(env.robots):
+        if names:
             print("publishing")
             task_msg = task_allocation()
             task_msg.id = names
@@ -188,12 +169,6 @@ def mtsp_allocator():
             # time.sleep(1)
             task_pub.publish(task_msg)
             # time.sleep(1)
-            for robot in env.robots.values():
-                if robot.next != robot.prev:
-                    finished[env.id_dict[robot.id]] = 0
-            names = []
-            starts = []
-            goals = []
 
         rate.sleep()
 
