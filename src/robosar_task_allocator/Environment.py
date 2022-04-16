@@ -12,7 +12,7 @@ from robosar_task_allocator.Robot import Robot
 
 class Environment:
 
-    def __init__(self, nodes, adj, robots = {}):
+    def __init__(self, nodes, adj, robots={}):
         """
         nodes: nx2 np.array of task coordinates
         adj: nxn np.array adjacency matrix
@@ -27,7 +27,9 @@ class Environment:
                     self.adj[i][j] = 0
                 elif self.adj[i][j] < 0:
                     d = self.dijkstra(i, j)
-                    assert d > 0
+                    if d < 0:
+                        print("WARNING: could not find path from {} to {}".format(nodes[i], nodes[j]))
+                        d = 3*np.linalg.norm(nodes[i]-nodes[j])
                     self.adj[i][j] = d
                     self.adj[j][i] = self.adj[i][j]
 
@@ -96,7 +98,7 @@ class Environment:
                 if dist[i] > newDist:
                     dist[i] = newDist
                     heapq.heappush(minHeap, (dist[i], i))
-        return d
+        return -1
 
 
 
