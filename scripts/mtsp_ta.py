@@ -35,7 +35,31 @@ maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
 
+"""
+Get rid of tasks that are too close to obstacles
+"""
+def refineNodes(r, nodes, map):
+    idx = []
+    print(map.shape)
+    for i in range(len(nodes)):
+        x = nodes[i][1]
+        y = nodes[i][0]
+        if not checkCollision(x, y, r, map):
+            idx.append(i)
+    return nodes[idx]
 
+
+def checkCollision(x, y, r, map):
+    for i in range(-r, r+1):
+        for j in range(-r, r+1):
+            if 0 <= x+i < map.shape[0] and 0 <= y+j < map.shape[1]:
+                if map[x + i][y + j] == 100:
+                    return True
+    return False
+
+"""
+Agent status callback
+"""
 def status_callback(msg):
     rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
     try:
@@ -53,7 +77,9 @@ def status_callback(msg):
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
 
-
+"""
+Main function
+"""
 def mtsp_allocator():
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
@@ -94,6 +120,7 @@ def mtsp_allocator():
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
+    nodes = refineNodes(3, nodes, data)
 
     listener = tf.TransformListener()
     robot_init = []
