@@ -137,7 +137,7 @@ def mtsp_allocator():
 
     # Create graph
     n = nodes.shape[0]
-    downsample = 5
+    downsample = 1
     # filename = maps_path+'/maps/willow-full.pgm'
     print('creating graph')
     adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
