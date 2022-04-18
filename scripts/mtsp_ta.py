@@ -34,6 +34,8 @@ rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
+env = Environment()
+solver = TA_mTSP()
 
 """
 Get rid of tasks that are too close to obstacles
@@ -73,6 +75,9 @@ def status_callback(msg):
             agent_active_status[int(a[-1])] = True
         # update fleet
         env.fleet_update(agent_active_status)
+        solver.calculate_mtsp(False)
+        for id in env.robots:
+            solver.assign(id, env.robots[id].prev)
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
@@ -85,7 +90,6 @@ def mtsp_allocator():
 
     # Get active agents
     print("calling agent status service")
-    # rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
     rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
     try:
         get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
@@ -165,7 +169,6 @@ def mtsp_allocator():
         env.add_robot(int(name[-1]), name, init_order.index(name))
 
     print('routing')
-    solver = TA_mTSP()
     solver.init(env, 5)
     print('done')
 
@@ -189,6 +192,9 @@ def mtsp_allocator():
     names = []
     starts = []
     goals = []
+
+    # agent status update subscriber
+    rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
 
     while not rospy.is_shutdown():
 

@@ -12,7 +12,7 @@ from robosar_task_allocator.Robot import Robot
 
 class Environment:
 
-    def __init__(self, nodes, adj, robots={}):
+    def __init__(self, nodes=[], adj=[], robots={}):
         """
         nodes: nx2 np.array of task coordinates
         adj: nxn np.array adjacency matrix
@@ -33,7 +33,7 @@ class Environment:
                     self.adj[i][j] = d
                     self.adj[j][i] = self.adj[i][j]
 
-        self.num_nodes = adj.shape[0]
+        self.num_nodes = len(adj)
         self.robots = robots
         self.id_dict = {}
         for idx, id in enumerate(self.robots.keys()):

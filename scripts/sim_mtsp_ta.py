@@ -34,6 +34,7 @@ rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
+env = Environment()
 
 
 def refineNodes(r, nodes, map):
