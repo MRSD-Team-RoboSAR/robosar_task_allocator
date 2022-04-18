@@ -122,6 +122,10 @@ def mtsp_allocator():
         raise Exception("Task generation service call failed")
     nodes = refineNodes(3, nodes, data)
 
+    utils.plot_pgm_data(data)
+    plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+    plt.show()
+
     listener = tf.TransformListener()
     robot_init = []
     init_order = []
