@@ -125,6 +125,13 @@ def mtsp_allocator():
         print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
     nodes = refineNodes(3, nodes, data)
+    # masking
+    idx = []
+    for i in range(len(nodes)):
+        if 90 <= nodes[i][0] <= 565:
+            idx.append(i)
+            print(i)
+    nodes = nodes[idx]
 
     utils.plot_pgm_data(data)
     plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)

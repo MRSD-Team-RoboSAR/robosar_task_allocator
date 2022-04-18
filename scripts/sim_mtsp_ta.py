@@ -114,6 +114,12 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
+    # masking
+    idx = []
+    for i in range(len(nodes)):
+        if 90 <= nodes[i][0] <= 565:
+            idx.append(i)
+    nodes = nodes[idx]
 
     #plot
     utils.plot_pgm_data(data)
