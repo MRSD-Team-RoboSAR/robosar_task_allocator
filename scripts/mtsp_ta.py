@@ -76,8 +76,6 @@ def status_callback(msg):
         # update fleet
         env.fleet_update(agent_active_status)
         solver.calculate_mtsp(False)
-        for id in env.robots:
-            solver.assign(id, env.robots[id].prev)
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
