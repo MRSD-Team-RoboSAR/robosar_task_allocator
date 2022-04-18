@@ -97,8 +97,6 @@ def mtsp_allocator():
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1, 2))
-        # nodes = np.fliplr(nodes)
-        # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
@@ -121,18 +119,19 @@ def mtsp_allocator():
     nodes = np.vstack((robot_init, nodes))
     print("Nodes received: {}".format(nodes))
 
-    return
-
     # Create graph
     n = nodes.shape[0]
-    downsample = 3
-    # filename = maps_path+'/maps/willow-full.pgm'
-    print('creating graph')
-    adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
-    print('done')
+    downsample = 1
+    make_graph = False
+    if make_graph:
+        print('creating graph')
+        adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
+        np.save(package_path+"/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy", adj)
+        print('done')
 
     # Create environment
-    # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))
+    if not make_graph:
+        adj = np.load(package_path+'/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
     env = Environment(nodes[:n, :], adj)
 
     # Create robots
