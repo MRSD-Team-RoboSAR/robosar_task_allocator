@@ -133,18 +133,27 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
+
+    # plot
+    utils.plot_pgm_data(data)
+    plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+    plt.show()
+
     nodes = np.vstack((robot_init, nodes))
 
     # Create graph
     n = nodes.shape[0]
     downsample = 1
-    # filename = maps_path+'/maps/willow-full.pgm'
-    print('creating graph')
-    adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
-    print('done')
+    make_graph = False
+    if make_graph:
+        print('creating graph')
+        adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
+        np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy", adj)
+        print('done')
 
     # Create environment
-    # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))
+    if not make_graph:
+        adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
     env = Environment(nodes[:n, :], adj)
 
     # Create robots

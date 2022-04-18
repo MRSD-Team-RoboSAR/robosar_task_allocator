@@ -113,9 +113,12 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
+
+    #plot
     utils.plot_pgm_data(data)
     plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
     plt.show()
+
     nodes = np.vstack((robot_init, nodes))
     print("Nodes received: {}".format(nodes))
 
