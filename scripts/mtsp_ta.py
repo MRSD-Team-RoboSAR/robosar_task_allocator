@@ -126,9 +126,8 @@ def mtsp_allocator():
     # masking
     idx = []
     for i in range(len(nodes)):
-        if 90 <= nodes[i][0] <= 565:
+        if 90 <= nodes[i][0] <= 565 or nodes[i][0] >= 447 or nodes[i][1] >= 127:
             idx.append(i)
-            print(i)
     nodes = nodes[idx]
 
     utils.plot_pgm_data(data)
