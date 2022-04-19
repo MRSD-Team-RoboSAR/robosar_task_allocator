@@ -99,6 +99,8 @@ class TA_mTSP(TA):
             self.assign(id, curr_node)
         elif r.prev is not curr_node:
             r.prev = curr_node
+            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
+            plt.pause(0.1)
             r.visited.append(curr_node)
             self.env.frontier.remove(curr_node)
             self.env.visited.add(curr_node)
@@ -118,7 +120,6 @@ class TA_mTSP(TA):
         if self.tours[self.env.id_dict[id]] and len(self.tours[self.env.id_dict[id]]) > 1:
             min_node = self.tours[self.env.id_dict[id]][1]
             print("Assigned robot {}: node {} at {}".format(id, min_node, self.env.nodes[min_node]))
-            plt.plot(self.env.nodes[min_node][0], self.env.nodes[min_node][1], 'go', zorder=200)
             robot.next = min_node
             self.tours[self.env.id_dict[id]] = self.tours[self.env.id_dict[id]][1:]
             self.objective_value[self.env.id_dict[id]] += self.env.adj[robot.prev][robot.next]

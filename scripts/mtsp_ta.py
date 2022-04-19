@@ -77,12 +77,17 @@ def status_callback(msg):
             agent_active_status[int(a[-1])] = True
         # update fleet
         env.fleet_update(agent_active_status)
+        print("replanning")
         solver.calculate_mtsp(False)
+        print("done")
+        plt.clf()
         utils.plot_pgm_data(data)
         plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+        for node in env.visited:
+            plt.plot(nodes[node, 0], nodes[node, 1], 'ko', zorder=101)
         for r in range(len(env.robots)):
             plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-        plt.show()
+        plt.pause(3)
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
@@ -173,7 +178,7 @@ def mtsp_allocator():
     # Create environment
     if not make_graph:
         adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
-    env = Environment(nodes[:n, :], adj)
+    env = Environment(nodes[:, :], adj)
 
     # Create robots
     for name in agent_active_status:
@@ -188,7 +193,7 @@ def mtsp_allocator():
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-    plt.show()
+    plt.pause(3)
 
     # Create listener object
     listener = TaskListenerRobosarControl(env.robots)

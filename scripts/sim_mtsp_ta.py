@@ -155,7 +155,7 @@ def mtsp_allocator():
 
     print('routing')
     solver = TA_mTSP()
-    solver.init(env, 5)
+    solver.init(env, 8)
     print('done')
 
     # plot
@@ -163,7 +163,8 @@ def mtsp_allocator():
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-    plt.show()
+    # plt.show()
+    plt.pause(3)
 
     # Create listener object
     transmitter = TaskTxMoveBase(env.robots)
@@ -207,17 +208,20 @@ def mtsp_allocator():
             task_pub.publish(task_msg)
             # time.sleep(1)
 
-        if rospy.get_time() > 20 and reassign:
+        if rospy.get_time() > 70 and reassign:
             agent_active_status = {"robot_0": False, "robot_1": True, "robot_2": True}
             env.fleet_update(agent_active_status)
             print("replanning")
             solver.calculate_mtsp(False)
             print("done")
+            plt.clf()
             utils.plot_pgm_data(data)
             plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+            for node in env.visited:
+                plt.plot(nodes[node, 0], nodes[node, 1], 'ko', zorder=101)
             for r in range(len(env.robots)):
                 plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-            plt.show()
+            plt.pause(3)
             reassign = False
 
         rate.sleep()
