@@ -75,11 +75,14 @@ def status_callback(msg):
             agent_active_status[a] = False
         for a in active_agents:
             agent_active_status[int(a[-1])] = True
+
         # update fleet
         env.fleet_update(agent_active_status)
         print("replanning")
         solver.calculate_mtsp(False)
         print("done")
+
+        #plot
         plt.clf()
         utils.plot_pgm_data(data)
         plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
@@ -138,10 +141,11 @@ def mtsp_allocator():
     # masking
     idx = []
     for i in range(len(nodes)):
-        if 90 <= nodes[i][0] <= 565 or nodes[i][0] >= 447 or nodes[i][1] >= 127:
+        if 90 <= nodes[i][0] <= 565 and not (nodes[i][0] >= 447 and nodes[i][1] >= 127):
             idx.append(i)
     nodes = nodes[idx]
 
+    # plot
     utils.plot_pgm_data(data)
     plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
     plt.show()
@@ -157,12 +161,6 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
-
-    # plot
-    utils.plot_pgm_data(data)
-    plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
-    plt.show()
-
     nodes = np.vstack((robot_init, nodes))
 
     # Create graph

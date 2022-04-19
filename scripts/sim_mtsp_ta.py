@@ -208,7 +208,7 @@ def mtsp_allocator():
             task_pub.publish(task_msg)
             # time.sleep(1)
 
-        if rospy.get_time() > 70 and reassign:
+        if rospy.get_time() > 40 and reassign:
             agent_active_status = {"robot_0": False, "robot_1": True, "robot_2": True}
             env.fleet_update(agent_active_status)
             print("replanning")
@@ -218,7 +218,7 @@ def mtsp_allocator():
             utils.plot_pgm_data(data)
             plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
             for node in env.visited:
-                plt.plot(nodes[node, 0], nodes[node, 1], 'ko', zorder=101)
+                plt.plot(nodes[node, 0], nodes[node, 1], 'ko', zorder=200)
             for r in range(len(env.robots)):
                 plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
             plt.pause(3)

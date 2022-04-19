@@ -99,7 +99,6 @@ class TA_mTSP(TA):
             self.assign(id, curr_node)
         elif r.prev is not curr_node:
             r.prev = curr_node
-            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
             plt.pause(0.1)
             r.visited.append(curr_node)
             self.env.frontier.remove(curr_node)
@@ -114,6 +113,7 @@ class TA_mTSP(TA):
                 #     plt.plot(self.env.nodes[self.tours[r], 0], self.env.nodes[self.tours[r], 1], '-')
                 # plt.pause(3)
                 self.assign(id, curr_node)
+        plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
 
     def assign(self, id, curr_node):
         robot = self.env.robots[id]
