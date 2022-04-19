@@ -87,7 +87,7 @@ def status_callback(msg):
         utils.plot_pgm_data(data)
         plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
         for node in env.visited:
-            plt.plot(nodes[node, 0], nodes[node, 1], 'ko', zorder=101)
+            plt.plot(nodes[node, 0], nodes[node, 1], 'go', zorder=200)
         for r in range(len(env.robots)):
             plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
         plt.pause(3)
@@ -128,6 +128,11 @@ def mtsp_allocator():
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
+    free_space = 0
+    for cell in map_msg.data:
+        if 0 <= cell < 100:
+            free_space += 1
+    print("Map Area: {}".format(free_space * scale * scale))
     try:
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
@@ -256,3 +261,4 @@ if __name__ == '__main__':
         mtsp_allocator()
     except rospy.ROSInterruptException:
         pass
+    plt.close('all')

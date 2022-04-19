@@ -87,7 +87,7 @@ class TA_mTSP(TA):
     TA_mTSP: Multiple Traveling Salesman Problem task allocator
     """
 
-    def init(self, env, timeout):
+    def init(self, env, timeout=5):
         self.timeout = timeout
         self.env = env
         self.tours = self.calculate_mtsp(True)

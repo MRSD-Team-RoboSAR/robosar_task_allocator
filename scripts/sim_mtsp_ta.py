@@ -74,7 +74,7 @@ def status_callback(msg):
         plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
         for r in range(len(env.robots)):
             plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-        plt.show()
+        plt.show(block=False)
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
@@ -97,6 +97,11 @@ def mtsp_allocator():
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
+    free_space = 0
+    for cell in map_msg.data:
+        if 0 <= cell < 100:
+            free_space += 1
+    print("Map Area: {}".format(free_space*scale*scale))
     try:
         print("calling service")
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
@@ -127,12 +132,14 @@ def mtsp_allocator():
     nodes = nodes[idx]
 
     #plot
+    plt.figure()
     utils.plot_pgm_data(data)
     plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
     plt.show()
 
     nodes = np.vstack((robot_init, nodes))
     print("Nodes received: {}".format(nodes))
+    np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy", nodes)
 
     # Create graph
     n = nodes.shape[0]
@@ -155,15 +162,15 @@ def mtsp_allocator():
 
     print('routing')
     solver = TA_mTSP()
-    solver.init(env, 8)
+    solver.init(env)
     print('done')
 
     # plot
+    plt.figure()
     utils.plot_pgm_data(data)
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-    # plt.show()
     plt.pause(2)
 
     # Create listener object
@@ -186,7 +193,6 @@ def mtsp_allocator():
             if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
                 if robot.next and robot.next != robot.prev:
-                    print(robot.name)
                     transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
@@ -210,7 +216,7 @@ def mtsp_allocator():
             # time.sleep(1)
 
         if rospy.get_time() > 50 and reassign:
-            agent_active_status = {"robot_0": False, "robot_1": True, "robot_2": True}
+            agent_active_status = {"robot_0": True, "robot_1": True, "robot_2": False}
             env.fleet_update(agent_active_status)
             print("replanning")
             solver.calculate_mtsp(False)
@@ -233,3 +239,4 @@ if __name__ == '__main__':
         mtsp_allocator()
     except rospy.ROSInterruptException:
         pass
+    plt.close('all')
