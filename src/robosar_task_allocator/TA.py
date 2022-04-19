@@ -96,11 +96,12 @@ class TA_mTSP(TA):
     def reached(self, id, curr_node):
         r = self.env.robots[id]
         if r.next is None:
+            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
             self.assign(id, curr_node)
         elif r.prev is not curr_node:
             r.prev = curr_node
-            plt.pause(0.1)
             r.visited.append(curr_node)
+            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
             self.env.frontier.remove(curr_node)
             self.env.visited.add(curr_node)
             print("Robot {} reached node {}".format(id, curr_node))
@@ -113,7 +114,7 @@ class TA_mTSP(TA):
                 #     plt.plot(self.env.nodes[self.tours[r], 0], self.env.nodes[self.tours[r], 1], '-')
                 # plt.pause(3)
                 self.assign(id, curr_node)
-        plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
+        plt.pause(0.1)
 
     def assign(self, id, curr_node):
         robot = self.env.robots[id]
@@ -167,8 +168,8 @@ class TA_mTSP(TA):
         
         if not initial:
             self.tours = [[to_visit[i] for i in tour] for tour in tours]
-            for id, idx in self.env.id_dict.items():
-                self.tours[idx].insert(0, prev[id])
+            # for id, idx in self.env.id_dict.items():
+            #     self.tours[idx].insert(0, prev[id])
 
         return tours
 

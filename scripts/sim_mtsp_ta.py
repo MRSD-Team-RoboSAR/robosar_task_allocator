@@ -164,7 +164,7 @@ def mtsp_allocator():
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
     # plt.show()
-    plt.pause(3)
+    plt.pause(2)
 
     # Create listener object
     transmitter = TaskTxMoveBase(env.robots)
@@ -186,6 +186,7 @@ def mtsp_allocator():
             if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
                 if robot.next and robot.next != robot.prev:
+                    print(robot.name)
                     transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
@@ -208,7 +209,7 @@ def mtsp_allocator():
             task_pub.publish(task_msg)
             # time.sleep(1)
 
-        if rospy.get_time() > 40 and reassign:
+        if rospy.get_time() > 50 and reassign:
             agent_active_status = {"robot_0": False, "robot_1": True, "robot_2": True}
             env.fleet_update(agent_active_status)
             print("replanning")
@@ -218,7 +219,7 @@ def mtsp_allocator():
             utils.plot_pgm_data(data)
             plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
             for node in env.visited:
-                plt.plot(nodes[node, 0], nodes[node, 1], 'ko', zorder=200)
+                plt.plot(nodes[node, 0], nodes[node, 1], 'go', zorder=200)
             for r in range(len(env.robots)):
                 plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
             plt.pause(3)

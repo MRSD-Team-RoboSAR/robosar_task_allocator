@@ -191,7 +191,7 @@ def mtsp_allocator():
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-    plt.pause(3)
+    plt.pause(2)
 
     # Create listener object
     listener = TaskListenerRobosarControl(env.robots)
