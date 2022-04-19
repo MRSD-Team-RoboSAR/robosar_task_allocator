@@ -36,7 +36,6 @@ package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
 env = Environment()
 
-
 def refineNodes(r, nodes, map):
     idx = []
     print(map.shape)
@@ -70,6 +69,12 @@ def status_callback(msg):
             agent_active_status[int(a[-1])] = True
         # update fleet
         env.fleet_update(agent_active_status)
+        solver.calculate_mtsp(False)
+        utils.plot_pgm_data(data)
+        plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+        for r in range(len(env.robots)):
+            plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
+        plt.show()
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
@@ -169,6 +174,7 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
+    reassign = True
     while not rospy.is_shutdown():
         names = []
         starts = []
@@ -200,6 +206,19 @@ def mtsp_allocator():
             # time.sleep(1)
             task_pub.publish(task_msg)
             # time.sleep(1)
+
+        if rospy.get_time() > 20 and reassign:
+            agent_active_status = {"robot_0": False, "robot_1": True, "robot_2": True}
+            env.fleet_update(agent_active_status)
+            print("replanning")
+            solver.calculate_mtsp(False)
+            print("done")
+            utils.plot_pgm_data(data)
+            plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+            for r in range(len(env.robots)):
+                plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
+            plt.show()
+            reassign = False
 
         rate.sleep()
 

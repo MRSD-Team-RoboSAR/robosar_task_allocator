@@ -67,9 +67,10 @@ class Environment:
         agent_active_status: {id: Bool}
         """
         for agent, active in agent_active_status.items():
+            id = int(agent[-1])
             if not active:
-                self.robots.pop(agent)
-                self.id_dict.pop(agent)
+                self.robots.pop(id)
+                self.id_dict.pop(id)
         for idx, id in enumerate(self.robots.keys()):
             self.id_dict[id] = idx
         self.num_robots = len(self.robots)

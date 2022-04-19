@@ -36,6 +36,8 @@ package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
 env = Environment()
 solver = TA_mTSP()
+data = []
+nodes = []
 
 """
 Get rid of tasks that are too close to obstacles
@@ -76,6 +78,11 @@ def status_callback(msg):
         # update fleet
         env.fleet_update(agent_active_status)
         solver.calculate_mtsp(False)
+        utils.plot_pgm_data(data)
+        plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+        for r in range(len(env.robots)):
+            plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
+        plt.show()
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
