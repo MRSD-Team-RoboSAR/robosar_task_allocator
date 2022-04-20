@@ -232,7 +232,7 @@ def mtsp_allocator():
             if status == 2 and solver.tours[env.id_dict[robot.id]]:
                 solver.reached(robot.id, robot.next)
                 finished[env.id_dict[robot.id]] = 1
-                if robot.next and len(solver.tours[env.id_dict[robot.id]]) > 1:
+                if robot.next and robot.prev != robot.next:
                     listener.setBusyStatus(robot.name)
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
