@@ -156,7 +156,7 @@ def mtsp_allocator():
     # Create graph
     n = nodes.shape[0]
     downsample = 1
-    make_graph = False
+    make_graph = True
     if make_graph:
         print('creating graph')
         adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
@@ -193,13 +193,13 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    finished = [0 for i in env.robots]
+    finished = []
     names = []
     starts = []
     goals = []
 
     # agent status update subscriber
-    rospy.Subscriber("/robosar_agent_bringup/status", Bool, status_callback)
+    rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
 
     while not rospy.is_shutdown():
         # update fleet
@@ -224,19 +224,21 @@ def mtsp_allocator():
             status = listener.getStatus(robot.name)
             if status == 2 and (robot.next != robot.prev):
                 solver.reached(robot.id, robot.next)
-                finished[env.id_dict[robot.id]] = 1
+                finished.append(1)
                 if robot.next and robot.next != robot.prev:
                     listener.setBusyStatus(robot.name)
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     print(env.visited)
+            if robot.next == robot.prev:
+                finished.append(1)
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
 
         # publish tasks
-        if sum(finished) == len(env.robots):
+        if sum(finished) >= len(env.robots):
             print("publishing")
             task_msg = task_allocation()
             task_msg.id = names
@@ -249,9 +251,7 @@ def mtsp_allocator():
                 rospy.sleep(1)
             task_pub.publish(task_msg)
             rospy.sleep(1)
-            for robot in env.robots.values():
-                if robot.next != robot.prev:
-                    finished[env.id_dict[robot.id]] = 0
+            finished = []
             names = []
             starts = []
             goals = []
