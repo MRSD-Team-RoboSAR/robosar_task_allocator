@@ -131,7 +131,7 @@ def mtsp_allocator():
     # masking
     idx = []
     for i in range(len(nodes)):
-        if 90 <= nodes[i][0] <= 565 and not (nodes[i][0] >= 447 and nodes[i][1] >= 127):
+        if 90 <= nodes[i][0] <= 565:
             idx.append(i)
     nodes = nodes[idx]
 
@@ -152,11 +152,12 @@ def mtsp_allocator():
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
     nodes = np.vstack((robot_init, nodes))
+    np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy", nodes)
 
     # Create graph
     n = nodes.shape[0]
     downsample = 1
-    make_graph = True
+    make_graph = False
     if make_graph:
         print('creating graph')
         adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
@@ -166,6 +167,8 @@ def mtsp_allocator():
     # Create environment
     if not make_graph:
         adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
+    if len(nodes) != len(adj):
+        raise Exception("ERROR: length of nodes not equal to number in graph")
     env = Environment(nodes[:, :], adj)
 
     # Create robots
@@ -193,7 +196,7 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    finished = []
+    finished = [0 for i in env.robots]
     names = []
     starts = []
     goals = []
@@ -204,6 +207,10 @@ def mtsp_allocator():
     while not rospy.is_shutdown():
         # update fleet
         if callback_triggered:
+            for agent, active in agent_active_status.items():
+                id = int(agent[-1])
+                if not active and id in env.robots:
+                    finished.pop(env.id_dict[id])
             env.fleet_update(agent_active_status)
             print("replanning")
             solver.calculate_mtsp(False)
@@ -222,23 +229,21 @@ def mtsp_allocator():
 
         for robot in env.robots.values():
             status = listener.getStatus(robot.name)
-            if status == 2 and (robot.next != robot.prev):
+            if status == 2 and solver.tours[env.id_dict[robot.id]]:
                 solver.reached(robot.id, robot.next)
-                finished.append(1)
-                if robot.next and robot.next != robot.prev:
+                finished[env.id_dict[robot.id]] = 1
+                if robot.next and len(solver.tours[env.id_dict[robot.id]]) > 1:
                     listener.setBusyStatus(robot.name)
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     print(env.visited)
-            if robot.next == robot.prev:
-                finished.append(1)
         if len(solver.env.visited) == len(nodes):
             print('finished')
             break
 
         # publish tasks
-        if sum(finished) >= len(env.robots):
+        if sum(finished) == len(env.robots) and names:
             print("publishing")
             task_msg = task_allocation()
             task_msg.id = names
@@ -251,7 +256,9 @@ def mtsp_allocator():
                 rospy.sleep(1)
             task_pub.publish(task_msg)
             rospy.sleep(1)
-            finished = []
+            for robot in env.robots.values():
+                if len(solver.tours[env.id_dict[robot.id]]) > 1:
+                    finished[env.id_dict[robot.id]] = 0
             names = []
             starts = []
             goals = []

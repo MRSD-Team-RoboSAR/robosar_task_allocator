@@ -53,6 +53,9 @@ class Simulation:
             for r in self.env.robots.values():
                 r.pos_prev = [r.pos[0], r.pos[1]]
 
+            if self.t%5==0:
+                plt.savefig('{}.png'.format(self.t))
+
             # increase time step
             self.t += self.dt
             self.t_step += 1

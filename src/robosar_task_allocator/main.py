@@ -42,7 +42,7 @@ if __name__ == '__main__':
     filename = '/home/rachelzheng/robosar_ws/src/robosar_navigation/maps/scott_hall_SVD.pgm'
     if make_graph:
         print('creating graph')
-        adj = utils.create_graph_from_file(filename, nodes, n, downsample, False)
+        adj = utils.create_graph_from_file(filename, nodes, len(nodes), downsample, False)
         print('done')
 
     utils.plot_pgm(filename)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         plt.plot([r.pos_prev[0], r.pos[0]], [r.pos_prev[1], r.pos[1]], colors[idx] + 'o')
 
     solver = TA_mTSP()
-    solver.init(env, 5)
+    solver.init(env)
     sim = Simulation(env, solver, 1, 300, colors)
     robot_paths = sim.simulate()
 

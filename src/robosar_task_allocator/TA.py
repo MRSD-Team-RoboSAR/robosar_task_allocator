@@ -106,13 +106,10 @@ class TA_mTSP(TA):
             self.env.visited.add(curr_node)
             print("Robot {} reached node {}".format(id, curr_node))
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
-                # if len(self.env.visited)%30 == 0:
-                #     new_tour = self.calculate_mtsp(False)
-                #     self.tours = new_tour
-                # plt.plot(self.env.nodes[:, 0], self.env.nodes[:, 1], 'ko', zorder=100)
-                # for r in range(len(self.env.robots)):
-                #     plt.plot(self.env.nodes[self.tours[r], 0], self.env.nodes[self.tours[r], 1], '-')
-                # plt.pause(3)
+                self.assign(id, curr_node)
+        elif self.tours[self.env.id_dict[id]]:
+            print(self.tours[self.env.id_dict[id]])
+            if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
                 self.assign(id, curr_node)
         plt.pause(0.1)
 
