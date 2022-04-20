@@ -68,7 +68,7 @@ class Environment:
         """
         for agent, active in agent_active_status.items():
             id = int(agent[-1])
-            if not active:
+            if not active and id in self.robots:
                 print("FLEET UPDATE: {} died".format(agent))
                 self.robots.pop(id)
                 self.id_dict.pop(id)
