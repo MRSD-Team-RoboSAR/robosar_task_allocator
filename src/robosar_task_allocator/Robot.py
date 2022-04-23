@@ -14,3 +14,4 @@ class Robot:
         self.next = None
         self.prev = prev
         self.visited = [self.prev]
+        self.done = False

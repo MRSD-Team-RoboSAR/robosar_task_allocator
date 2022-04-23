@@ -80,6 +80,21 @@ def status_callback(msg):
         print("Agent status service call failed: %s" % e)
 
 """
+Get robot positions
+"""
+def get_agent_position(listener, scale, origin):
+    robot_init = []
+    init_order = []
+    for name in agent_active_status:
+        now = rospy.Time.now()
+        listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
+        (trans, rot) = listener.lookupTransform('map', name + '/base_link', now)
+        robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
+        init_order.append(name)
+    robot_init = np.reshape(robot_init, (-1, 2))
+    return robot_init, init_order
+
+"""
 Main function
 """
 def mtsp_allocator():
@@ -140,17 +155,10 @@ def mtsp_allocator():
     plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
     plt.show()
 
-    listener = tf.TransformListener()
-    robot_init = []
-    init_order = []
-    listener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
-    for name in agent_active_status:
-        now = rospy.Time.now()
-        listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
-        (trans, rot) = listener.lookupTransform('map', name + '/base_link', now)
-        robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
-        init_order.append(name)
-    robot_init = np.reshape(robot_init, (-1, 2))
+    # get robot positions
+    tflistener = tf.TransformListener()
+    tflistener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
+    robot_init, init_order = get_agent_position(tflistener, scale, origin)
     nodes = np.vstack((robot_init, nodes))
     np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy", nodes)
 
@@ -229,17 +237,20 @@ def mtsp_allocator():
 
         for robot in env.robots.values():
             status = listener.getStatus(robot.name)
-            if status == 2 and solver.tours[env.id_dict[robot.id]]:
+            if status == 2 and not robot.done:
                 solver.reached(robot.id, robot.next)
                 finished[env.id_dict[robot.id]] = 1
                 if robot.next and robot.prev != robot.next:
                     listener.setBusyStatus(robot.name)
                     names.append(robot.name)
-                    starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
+                    now = rospy.Time.now()
+                    tflistener.waitForTransform('map', robot.name + '/base_link', now, rospy.Duration(1.0))
+                    (trans, rot) = tflistener.lookupTransform('map', robot.name + '/base_link', now)
+                    starts.append([trans[0], trans[1]])
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     print(env.visited)
         if len(solver.env.visited) == len(nodes):
-            print('finished')
+            print('FINISHED')
             break
 
         # publish tasks
@@ -257,7 +268,7 @@ def mtsp_allocator():
             task_pub.publish(task_msg)
             rospy.sleep(1)
             for robot in env.robots.values():
-                if len(solver.tours[env.id_dict[robot.id]]) > 1:
+                if not robot.done:
                     finished[env.id_dict[robot.id]] = 0
             names = []
             starts = []
