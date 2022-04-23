@@ -97,6 +97,7 @@ class TA_mTSP(TA):
 
     def reached(self, id, curr_node):
         r = self.env.robots[id]
+        # print("{}: {}".format(id, self.tours[self.env.id_dict[id]]))
         self.tours[self.env.id_dict[id]].pop(0)
         if not self.tours[self.env.id_dict[id]]: # if robot has finished
             r.done = True
@@ -117,6 +118,7 @@ class TA_mTSP(TA):
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
                 self.assign(id, curr_node)
         plt.pause(0.1)
+
 
     def assign(self, id, curr_node):
         robot = self.env.robots[id]

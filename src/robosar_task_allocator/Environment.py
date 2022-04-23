@@ -4,7 +4,6 @@ Environment class
 """
 
 import numpy as np
-from itertools import combinations
 import heapq
 # from Robot import Robot
 from robosar_task_allocator.Robot import Robot

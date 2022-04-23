@@ -64,7 +64,8 @@ if __name__ == '__main__':
         plt.plot([r.pos_prev[0], r.pos[0]], [r.pos_prev[1], r.pos[1]], colors[idx] + 'o')
 
     solver = TA_mTSP()
-    solver.init(env)
+    solver.init(env, 5)
+
     sim = Simulation(env, solver, 1, 300, colors)
     robot_paths = sim.simulate()
 
