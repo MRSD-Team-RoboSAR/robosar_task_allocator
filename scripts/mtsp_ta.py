@@ -204,15 +204,16 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    finished = [0 for i in env.robots]
-    names = []
-    starts = []
-    goals = []
+    # finished = [0 for i in env.robots]
 
     # agent status update subscriber
     rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
 
     while not rospy.is_shutdown():
+        names = []
+        starts = []
+        goals = []
+
         # update fleet
         if callback_triggered:
             for agent, active in agent_active_status.items():
@@ -239,7 +240,7 @@ def mtsp_allocator():
             status = listener.getStatus(robot.name)
             if status == 2 and not robot.done:
                 solver.reached(robot.id, robot.next)
-                finished[env.id_dict[robot.id]] = 1
+                # finished[env.id_dict[robot.id]] = 1
                 if robot.next and robot.prev != robot.next:
                     listener.setBusyStatus(robot.name)
                     names.append(robot.name)
@@ -254,7 +255,7 @@ def mtsp_allocator():
             break
 
         # publish tasks
-        if sum(finished) == len(env.robots) and names:
+        if names:
             print("publishing")
             task_msg = task_allocation()
             task_msg.id = names
@@ -267,12 +268,12 @@ def mtsp_allocator():
                 rospy.sleep(1)
             task_pub.publish(task_msg)
             rospy.sleep(1)
-            for robot in env.robots.values():
-                if not robot.done:
-                    finished[env.id_dict[robot.id]] = 0
-            names = []
-            starts = []
-            goals = []
+            # for robot in env.robots.values():
+            #     if not robot.done:
+            #         finished[env.id_dict[robot.id]] = 0
+            # names = []
+            # starts = []
+            # goals = []
 
         rate.sleep()
 
