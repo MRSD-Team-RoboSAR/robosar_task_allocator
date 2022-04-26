@@ -34,9 +34,35 @@ rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
+callback_triggered = False
+
+"""
+Get rid of tasks that are too close to obstacles
+"""
+def refineNodes(r, nodes, map):
+    idx = []
+    print(map.shape)
+    for i in range(len(nodes)):
+        x = nodes[i][1]
+        y = nodes[i][0]
+        if not checkCollision(x, y, r, map):
+            idx.append(i)
+    return nodes[idx]
 
 
+def checkCollision(x, y, r, map):
+    for i in range(-r, r+1):
+        for j in range(-r, r+1):
+            if 0 <= x+i < map.shape[0] and 0 <= y+j < map.shape[1]:
+                if map[x + i][y + j] == 100:
+                    return True
+    return False
+
+"""
+Agent status callback
+"""
 def status_callback(msg):
+    global callback_triggered
     rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
     try:
         print("calling service")
@@ -46,20 +72,37 @@ def status_callback(msg):
         for a in agent_active_status:
             agent_active_status[a] = False
         for a in active_agents:
-            agent_active_status[int(a[-1])] = True
-        # update fleet
-        env.fleet_update(agent_active_status)
+            agent_active_status[a] = True
+        print(agent_active_status)
+        callback_triggered = True
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
 
+"""
+Get robot positions
+"""
+def get_agent_position(listener, scale, origin):
+    robot_init = []
+    init_order = []
+    for name in agent_active_status:
+        now = rospy.Time.now()
+        listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
+        (trans, rot) = listener.lookupTransform('map', name + '/base_link', now)
+        robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
+        init_order.append(name)
+    robot_init = np.reshape(robot_init, (-1, 2))
+    return robot_init, init_order
 
+"""
+Main function
+"""
 def mtsp_allocator():
+    global callback_triggered
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
     # Get active agents
     print("calling agent status service")
-    # rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
     rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
     try:
         get_status = rospy.ServiceProxy('/robosar_agent_bringup_node/agent_status', agent_status)
@@ -85,44 +128,56 @@ def mtsp_allocator():
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
+    free_space = 0
+    for cell in map_msg.data:
+        if 0 <= cell < 100:
+            free_space += 1
+    print("Map Area: {}".format(free_space * scale * scale))
     try:
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1, 2))
-        # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
+        np.save(package_path+"/src/robosar_task_allocator/saved_graphs/scott_SVD.npy", nodes)
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
+    nodes = refineNodes(3, nodes, data)
+    # masking
+    idx = []
+    for i in range(len(nodes)):
+        if 90 <= nodes[i][0] <= 565:
+            idx.append(i)
+    nodes = nodes[idx]
+    print("Nodes received: {}".format(nodes))
 
-    listener = tf.TransformListener()
-    robot_init = []
-    init_order = []
-    listener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
-    for name in agent_active_status:
-        now = rospy.Time.now()
-        listener.waitForTransform('map', name + '/base_link', now, rospy.Duration(1.0))
-        (trans, rot) = listener.lookupTransform('map', name + '/base_link', now)
-        robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
-        init_order.append(name)
-    robot_init = np.reshape(robot_init, (-1, 2))
+    # get robot positions
+    tflistener = tf.TransformListener()
+    tflistener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
+    robot_init, init_order = get_agent_position(tflistener, scale, origin)
     nodes = np.vstack((robot_init, nodes))
+    np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy", nodes)
 
     # Create graph
     n = nodes.shape[0]
-    downsample = 5
-    # filename = maps_path+'/maps/willow-full.pgm'
-    print('creating graph')
-    adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
-    print('done')
+    downsample = 1
+    make_graph = False
+    if make_graph:
+        print('creating graph')
+        adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
+        np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy", adj)
+        print('done')
 
     # Create environment
-    # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))
-    env = Environment(nodes[:n, :], adj)
+    if not make_graph:
+        adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
+    if len(nodes) != len(adj):
+        raise Exception("ERROR: length of nodes not equal to number in graph")
+    env = Environment(nodes[:, :], adj)
 
     # Create robots
     for name in agent_active_status:
-        env.add_robot(int(name[-1]), name, init_order.index(name))
+        env.add_robot(name, init_order.index(name))
 
     print('routing')
     solver = TA_mTSP()
@@ -134,7 +189,7 @@ def mtsp_allocator():
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-    plt.show()
+    plt.pause(2)
 
     # Create listener object
     listener = TaskListenerRobosarControl(env.robots)
@@ -145,30 +200,57 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
-    finished = [0 for i in env.robots]
-    names = []
-    starts = []
-    goals = []
+    # finished = [0 for i in env.robots]
+
+    # agent status update subscriber
+    rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
 
     while not rospy.is_shutdown():
+        names = []
+        starts = []
+        goals = []
+
+        # update fleet
+        if callback_triggered:
+            # for agent, active in agent_active_status.items():
+            #     if not active and agent in env.robots:
+            #         finished.pop(env.get_robot_id(agent))
+            env.fleet_update(agent_active_status)
+            print("replanning")
+            solver.calculate_mtsp(False)
+            print("done")
+            callback_triggered = False
+
+            # plot
+            plt.clf()
+            utils.plot_pgm_data(data)
+            plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+            for node in env.visited:
+                plt.plot(nodes[node, 0], nodes[node, 1], 'go', zorder=200)
+            for r in range(len(env.robots)):
+                plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
+            plt.pause(3)
 
         for robot in env.robots.values():
             status = listener.getStatus(robot.name)
-            if status == 2 and (robot.next != robot.prev):
-                solver.reached(robot.id, robot.next)
-                finished[env.id_dict[robot.id]] = 1
-                if robot.next and robot.next != robot.prev:
+            if status == 2 and not robot.done:
+                solver.reached(robot.name, robot.next)
+                # finished[env.id_dict[robot.id]] = 1
+                if robot.next and robot.prev != robot.next:
                     listener.setBusyStatus(robot.name)
                     names.append(robot.name)
-                    starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
+                    now = rospy.Time.now()
+                    tflistener.waitForTransform('map', robot.name + '/base_link', now, rospy.Duration(1.0))
+                    (trans, rot) = tflistener.lookupTransform('map', robot.name + '/base_link', now)
+                    starts.append([trans[0], trans[1]])
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     print(env.visited)
         if len(solver.env.visited) == len(nodes):
-            print('finished')
+            print('FINISHED')
             break
 
         # publish tasks
-        if sum(finished) == len(env.robots):
+        if names:
             print("publishing")
             task_msg = task_allocation()
             task_msg.id = names
@@ -181,12 +263,12 @@ def mtsp_allocator():
                 rospy.sleep(1)
             task_pub.publish(task_msg)
             rospy.sleep(1)
-            for robot in env.robots.values():
-                if robot.next != robot.prev:
-                    finished[env.id_dict[robot.id]] = 0
-            names = []
-            starts = []
-            goals = []
+            # for robot in env.robots.values():
+            #     if not robot.done:
+            #         finished[env.id_dict[robot.id]] = 0
+            # names = []
+            # starts = []
+            # goals = []
 
         rate.sleep()
 
@@ -196,3 +278,4 @@ if __name__ == '__main__':
         mtsp_allocator()
     except rospy.ROSInterruptException:
         pass
+    plt.close('all')

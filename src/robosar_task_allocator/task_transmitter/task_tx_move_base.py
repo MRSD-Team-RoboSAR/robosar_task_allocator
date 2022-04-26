@@ -23,7 +23,7 @@ class TaskTxMoveBase:
             # Waits until the action server has started up and started listening for goals.
             if(client.wait_for_server(rospy.Duration(5))):
                 # Add it to client map
-                self.client_map[robots[i].id] = client
+                self.client_map[robots[i].name] = client
             else:
                 rospy.logwarn("[Task_Alloc_Tx] Could not create client for {}".format(robots[i].name))
 
@@ -57,12 +57,12 @@ class TaskTxMoveBase:
         else:
             rospy.logwarn("[Task_Alloc_Tx] Missing client for {}".format(robot_id))
 
-if __name__ == "__main__":
-    robot0 = Robot(0, [0,0], 0)
-    robot1 = Robot(1, [0,0], 0)
-    robot2 = Robot(2, [0,0], 0)
-    robots = [robot0, robot1, robot2]
-    testObj = TaskTxMoveBase(robots)
-    time.sleep(1)
-    testObj.setGoal(1,[25.0,15.0])
-    print('End!')
+# if __name__ == "__main__":
+#     robot0 = Robot(0, [0,0], 0)
+#     robot1 = Robot(1, [0,0], 0)
+#     robot2 = Robot(2, [0,0], 0)
+#     robots = [robot0, robot1, robot2]
+#     testObj = TaskTxMoveBase(robots)
+#     time.sleep(1)
+#     testObj.setGoal(1,[25.0,15.0])
+#     print('End!')

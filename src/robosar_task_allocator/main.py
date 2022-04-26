@@ -33,28 +33,29 @@ def create_random_graph(n, env_size):
 
 if __name__ == '__main__':
     # Create graph
-    n = 40
+    # n = 40
     make_graph = False
     downsample = 5
     # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
-    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_generator/outputs/willow-full_lean.npy")
+    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy")
     # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/generate_graph/maps/localization_map_lab.pgm'
-    filename = '/home/rachelzheng/robosar_ws/src/robosar_task_generator/maps/willow-full.pgm'
+    filename = '/home/rachelzheng/robosar_ws/src/robosar_navigation/maps/scott_hall_SVD.pgm'
     if make_graph:
         print('creating graph')
-        adj = utils.create_graph_from_file(filename, nodes, n, downsample, False)
+        adj = utils.create_graph_from_file(filename, nodes, len(nodes), downsample, False)
         print('done')
 
     utils.plot_pgm(filename)
 
     # Create environment
-    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/willow_{}_graph.npy'.format(n))
+    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
+    n = len(nodes)
     env = Environment(nodes[:n,:], adj)
 
     # Create robots
-    id_list = [1,2,3]
+    id_list = [0,1,2]
     for id in id_list:
-        env.add_robot(id, "robot_"+str(id), 0)
+        env.add_robot("robot_"+str(id), id)
 
     # Plotting
     colors = ['r', 'b', 'm', 'c', 'y', 'g', 'k']
@@ -63,7 +64,8 @@ if __name__ == '__main__':
         plt.plot([r.pos_prev[0], r.pos[0]], [r.pos_prev[1], r.pos[1]], colors[idx] + 'o')
 
     solver = TA_mTSP()
-    solver.init(env, 15)
+    solver.init(env, 5)
+
     sim = Simulation(env, solver, 1, 300, colors)
     robot_paths = sim.simulate()
 
