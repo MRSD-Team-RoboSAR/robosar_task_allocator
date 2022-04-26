@@ -31,8 +31,8 @@ class Simulation:
         """
         Simulation loop
         """
-        for id in self.env.robots:
-            self.solver.reached(id, self.env.robots[id].prev)
+        for name in self.env.robots:
+            self.solver.reached(name, self.env.robots[name].prev)
 
         # simulate until all tasks are completed
         while len(self.env.visited) < self.env.num_nodes and self.t_step < self.max_steps:
@@ -68,7 +68,7 @@ class Simulation:
         """
         Move robot
         """
-        for id, r in self.env.robots.items():
+        for name, r in self.env.robots.items():
             if r.next and not r.done:
                 goal = self.env.nodes[r.next]
                 dir = np.array([goal[0]-r.pos[0], goal[1]-r.pos[1]])
@@ -79,21 +79,21 @@ class Simulation:
                     if dx > dist:
                         r.pos[0] = goal[0]
                         r.pos[1] = goal[1]
-                        self.solver.reached(id, r.next)
+                        self.solver.reached(name, r.next)
                     else:
                         x_next = r.pos + dir*dx
                         r.pos[0] = x_next[0]
                         r.pos[1] = x_next[1]
                 else:
-                    self.solver.reached(id, r.next)
+                    self.solver.reached(name, r.next)
 
-    def deactivate_robot(self, id):
+    def deactivate_robot(self, name):
         """
         Deactivate robot
         """
         active_agent_status = {}
         for robot in self.env.robots.values():
-            if robot.id != id:
+            if robot.name != name:
                 active_agent_status[robot.name] = True
             else:
                 active_agent_status[robot.name] = False

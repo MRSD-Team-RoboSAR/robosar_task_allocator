@@ -158,7 +158,7 @@ def mtsp_allocator():
 
     # Create robots
     for name in agent_active_status:
-        env.add_robot(int(name[-1]), name, init_order.index(name))
+        env.add_robot(name, init_order.index(name))
 
     print('routing')
     solver = TA_mTSP()
@@ -189,11 +189,11 @@ def mtsp_allocator():
         goals = []
 
         for robot in env.robots.values():
-            status = transmitter.getStatus(robot.id)
+            status = transmitter.getStatus(robot.name)
             if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and (robot.next != robot.prev):
-                solver.reached(robot.id, robot.next)
+                solver.reached(robot.name, robot.next)
                 if robot.next and robot.next != robot.prev:
-                    transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+                    transmitter.setGoal(robot.name, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))

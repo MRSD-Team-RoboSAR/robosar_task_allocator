@@ -149,11 +149,7 @@ def mtsp_allocator():
         if 90 <= nodes[i][0] <= 565:
             idx.append(i)
     nodes = nodes[idx]
-
-    # plot
-    utils.plot_pgm_data(data)
-    plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
-    plt.show()
+    print("Nodes received: {}".format(nodes))
 
     # get robot positions
     tflistener = tf.TransformListener()
@@ -181,7 +177,7 @@ def mtsp_allocator():
 
     # Create robots
     for name in agent_active_status:
-        env.add_robot(int(name[-1]), name, init_order.index(name))
+        env.add_robot(name, init_order.index(name))
 
     print('routing')
     solver = TA_mTSP()
@@ -216,10 +212,9 @@ def mtsp_allocator():
 
         # update fleet
         if callback_triggered:
-            for agent, active in agent_active_status.items():
-                id = int(agent[-1])
-                if not active and id in env.robots:
-                    finished.pop(env.id_dict[id])
+            # for agent, active in agent_active_status.items():
+            #     if not active and agent in env.robots:
+            #         finished.pop(env.get_robot_id(agent))
             env.fleet_update(agent_active_status)
             print("replanning")
             solver.calculate_mtsp(False)
@@ -239,7 +234,7 @@ def mtsp_allocator():
         for robot in env.robots.values():
             status = listener.getStatus(robot.name)
             if status == 2 and not robot.done:
-                solver.reached(robot.id, robot.next)
+                solver.reached(robot.name, robot.next)
                 # finished[env.id_dict[robot.id]] = 1
                 if robot.next and robot.prev != robot.next:
                     listener.setBusyStatus(robot.name)

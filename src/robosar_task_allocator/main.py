@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # Create robots
     id_list = [0,1,2]
     for id in id_list:
-        env.add_robot(id, "robot_"+str(id), id)
+        env.add_robot("robot_"+str(id), id)
 
     # Plotting
     colors = ['r', 'b', 'm', 'c', 'y', 'g', 'k']

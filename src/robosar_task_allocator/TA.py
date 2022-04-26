@@ -24,27 +24,27 @@ class TA(ABC):
         self.objective_value = [0] * len(self.env.robots)
 
 
-    def reached(self, id, curr_node):
+    def reached(self, name, curr_node):
         """ called after robot completes task
-        id: int
+        name: string
         curr_node: int
         """
-        r = self.env.robots[id]
+        r = self.env.robots[name]
         if r.prev is not curr_node:
             r.prev = curr_node
             r.visited.append(curr_node)
             self.env.frontier.remove(curr_node)
             self.env.visited.add(curr_node)
-            print("Robot {} reached node {}".format(id, curr_node))
+            print("Robot {} reached node {}".format(name, curr_node))
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
-                self.assign(id, curr_node)
+                self.assign(name, curr_node)
         else:
             r.done = True
 
     @abstractmethod
-    def assign(self, id, curr_node):
+    def assign(self, name, curr_node):
         """ called by reached() to assign robot its next task
-       id: int
+       name: string
        curr_node: int
        """
         pass
@@ -54,10 +54,10 @@ class TA_greedy(TA):
     TA_greedy: greedy task allocator
     """
 
-    def assign(self, id, curr_node):
+    def assign(self, name, curr_node):
         # Find next unvisited min cost task
         C = self.env.adj[curr_node, :]
-        robot = self.env.robots[id]
+        robot = self.env.robots[name]
         min_node_list = np.argsort(C)
         min_node = -1
         for i in min_node_list:
@@ -77,10 +77,10 @@ class TA_greedy(TA):
                 min_node_i = np.argmin(np.array(E))
                 min_node = idx[min_node_i]
 
-        print("Assigned robot {}: node {} at {}".format(id, min_node, self.env.nodes[min_node]))
+        print("Assigned {}: node {} at {}".format(name, min_node, self.env.nodes[min_node]))
         plt.plot(self.env.nodes[min_node][0], self.env.nodes[min_node][1], 'go', zorder=101)
         robot.next = min_node
-        self.objective_value[self.env.id_dict[id]] += self.env.adj[robot.prev][robot.next]
+        self.objective_value[self.env.get_robot_id(name)] += self.env.adj[robot.prev][robot.next]
         self.env.frontier.add(min_node)
 
 
@@ -95,38 +95,38 @@ class TA_mTSP(TA):
         self.tours = self.calculate_mtsp(True)
         self.objective_value = [0] * len(self.env.robots)
 
-    def reached(self, id, curr_node):
-        r = self.env.robots[id]
+    def reached(self, name, curr_node):
+        r = self.env.robots[name]
         # print("{}: {}".format(id, self.tours[self.env.id_dict[id]]))
-        self.tours[self.env.id_dict[id]].pop(0)
-        if not self.tours[self.env.id_dict[id]]: # if robot has finished
+        self.tours[self.env.get_robot_id(name)].pop(0)
+        if not self.tours[self.env.get_robot_id(name)]: # if robot has finished
             r.done = True
         if r.next is None: # first assignment
             plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
-            self.assign(id, curr_node)
+            self.assign(name, curr_node)
         elif r.prev is not curr_node: # if robot not done
             r.prev = curr_node
             r.visited.append(curr_node)
             plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
             self.env.frontier.remove(curr_node)
             self.env.visited.add(curr_node)
-            print("Robot {} reached node {}".format(id, curr_node))
+            print("Robot {} reached node {}".format(name, curr_node))
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
-                self.assign(id, curr_node)
-        elif self.tours[self.env.id_dict[id]]: # if robot was done, but is now reassigned
+                self.assign(name, curr_node)
+        elif self.tours[self.env.get_robot_id(name)]: # if robot was done, but is now reassigned
             r.done = False
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
-                self.assign(id, curr_node)
+                self.assign(name, curr_node)
         plt.pause(0.1)
 
 
-    def assign(self, id, curr_node):
-        robot = self.env.robots[id]
-        if self.tours[self.env.id_dict[id]]:
-            min_node = self.tours[self.env.id_dict[id]][0]
-            print("Assigned robot {}: node {} at {}".format(id, min_node, self.env.nodes[min_node]))
+    def assign(self, name, curr_node):
+        robot = self.env.robots[name]
+        if self.tours[self.env.id_dict[name]]:
+            min_node = self.tours[self.env.id_dict[name]][0]
+            print("Assigned {}: node {} at {}".format(name, min_node, self.env.nodes[min_node]))
             robot.next = min_node
-            self.objective_value[self.env.id_dict[id]] += self.env.adj[robot.prev][robot.next]
+            self.objective_value[self.env.get_robot_id(name)] += self.env.adj[robot.prev][robot.next]
             self.env.frontier.add(min_node)
 
 
@@ -171,8 +171,8 @@ class TA_mTSP(TA):
         
         if not initial:
             self.tours = [[to_visit[i] for i in tour] for tour in tours]
-            for id, robot in self.env.robots.items():
-                if len(self.tours[self.env.id_dict[id]]) > 1:
+            for name, robot in self.env.robots.items():
+                if len(self.tours[self.env.get_robot_id(name)]) > 1:
                     robot.done = False
                 else:
                     robot.done = True
