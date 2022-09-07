@@ -34,6 +34,26 @@ rospack = rospkg.RosPack()
 maps_path = rospack.get_path('robosar_task_generator')
 package_path = rospack.get_path('robosar_task_allocator')
 agent_active_status = {}
+env = Environment()
+
+def refineNodes(r, nodes, map):
+    idx = []
+    print(map.shape)
+    for i in range(len(nodes)):
+        x = nodes[i][1]
+        y = nodes[i][0]
+        if not checkCollision(x, y, r, map):
+            idx.append(i)
+    return nodes[idx]
+
+
+def checkCollision(x, y, r, map):
+    for i in range(-r, r+1):
+        for j in range(-r, r+1):
+            if 0 <= x+i < map.shape[0] and 0 <= y+j < map.shape[1]:
+                if map[x + i][y + j] == 100:
+                    return True
+    return False
 
 
 def status_callback(msg):
@@ -49,6 +69,12 @@ def status_callback(msg):
             agent_active_status[int(a[-1])] = True
         # update fleet
         env.fleet_update(agent_active_status)
+        solver.calculate_mtsp(False)
+        utils.plot_pgm_data(data)
+        plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+        for r in range(len(env.robots)):
+            plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
+        plt.show(block=False)
 
     except rospy.ServiceException as e:
         print("Agent status service call failed: %s" % e)
@@ -71,17 +97,21 @@ def mtsp_allocator():
     origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
     print("map origin: {}".format(origin))
     data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
+    free_space = 0
+    for cell in map_msg.data:
+        if 0 <= cell < 100:
+            free_space += 1
+    print("Map Area: {}".format(free_space*scale*scale))
     try:
         print("calling service")
         get_waypoints = rospy.ServiceProxy('taskgen_getwaypts', taskgen_getwaypts)
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1, 2))
-        # nodes = np.fliplr(nodes)
-        # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/custom_{}_points.npy".format(nodes.shape[0]), nodes)
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
+    nodes = refineNodes(3, nodes, data)
 
     listener = tf.TransformListener()
     robot_init = []
@@ -94,40 +124,54 @@ def mtsp_allocator():
         robot_init.append(utils.m_to_pixels([trans[0], trans[1]], scale, origin))
         init_order.append(name)
     robot_init = np.reshape(robot_init, (-1, 2))
+    # masking
+    idx = []
+    for i in range(len(nodes)):
+        if 90 <= nodes[i][0] <= 565:
+            idx.append(i)
+    nodes = nodes[idx]
+
+    #plot
+    plt.figure()
     utils.plot_pgm_data(data)
     plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
     plt.show()
+
     nodes = np.vstack((robot_init, nodes))
     print("Nodes received: {}".format(nodes))
-
+    np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy", nodes)
 
     # Create graph
     n = nodes.shape[0]
     downsample = 1
-    # filename = maps_path+'/maps/willow-full.pgm'
-    print('creating graph')
-    adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
-    print('done')
+    make_graph = False
+    if make_graph:
+        print('creating graph')
+        adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
+        np.save(package_path+"/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy", adj)
+        print('done')
 
     # Create environment
-    # adj = np.load(package_path+'/saved_graphs/custom_{}_graph.npy'.format(n))
+    if not make_graph:
+        adj = np.load(package_path+'/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
     env = Environment(nodes[:n, :], adj)
 
     # Create robots
     for name in agent_active_status:
-        env.add_robot(int(name[-1]), name, init_order.index(name))
+        env.add_robot(name, init_order.index(name))
 
     print('routing')
     solver = TA_mTSP()
-    solver.init(env, 5)
+    solver.init(env)
     print('done')
 
     # plot
+    plt.figure()
     utils.plot_pgm_data(data)
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-    plt.show()
+    plt.pause(2)
 
     # Create listener object
     transmitter = TaskTxMoveBase(env.robots)
@@ -138,17 +182,18 @@ def mtsp_allocator():
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
 
+    reassign = True
     while not rospy.is_shutdown():
         names = []
         starts = []
         goals = []
 
         for robot in env.robots.values():
-            status = transmitter.getStatus(robot.id)
+            status = transmitter.getStatus(robot.name)
             if (status == GoalStatus.SUCCEEDED or status == GoalStatus.LOST) and (robot.next != robot.prev):
-                solver.reached(robot.id, robot.next)
+                solver.reached(robot.name, robot.next)
                 if robot.next and robot.next != robot.prev:
-                    transmitter.setGoal(robot.id, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
+                    transmitter.setGoal(robot.name, utils.pixels_to_m(env.nodes[robot.next], scale, origin))
                     names.append(robot.name)
                     starts.append(utils.pixels_to_m(env.nodes[robot.prev], scale, origin))
                     goals.append(utils.pixels_to_m(env.nodes[robot.next], scale, origin))
@@ -170,6 +215,22 @@ def mtsp_allocator():
             task_pub.publish(task_msg)
             # time.sleep(1)
 
+        if rospy.get_time() > 50 and reassign:
+            agent_active_status = {"robot_0": True, "robot_1": True, "robot_2": False}
+            env.fleet_update(agent_active_status)
+            print("replanning")
+            solver.calculate_mtsp(False)
+            print("done")
+            plt.clf()
+            utils.plot_pgm_data(data)
+            plt.plot(nodes[:, 0], nodes[:, 1], 'ko', zorder=100)
+            for node in env.visited:
+                plt.plot(nodes[node, 0], nodes[node, 1], 'go', zorder=200)
+            for r in range(len(env.robots)):
+                plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
+            plt.pause(3)
+            reassign = False
+
         rate.sleep()
 
 
@@ -178,3 +239,4 @@ if __name__ == '__main__':
         mtsp_allocator()
     except rospy.ROSInterruptException:
         pass
+    plt.close('all')

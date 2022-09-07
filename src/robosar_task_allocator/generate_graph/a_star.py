@@ -51,6 +51,8 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
         raise Exception('Start node is not traversable')
 
     if gmap.is_occupied_idx(goal):
+        print(goal)
+        #print(gmap.is_occupied_idx(goal[0], goal[1]))
         raise Exception('Goal node is not traversable')
 
     # add start node to front
@@ -74,6 +76,7 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
     iter = 0
     while front:
         if iter == 5000:
+            # print("WARN: astar timeout")
             break
         # get smallest item and remove from front.
         element = heappop(front)

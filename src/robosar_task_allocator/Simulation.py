@@ -31,17 +31,15 @@ class Simulation:
         """
         Simulation loop
         """
-        for id in self.env.robots:
-            self.solver.assign(id, self.env.robots[id].prev)
+        for name in self.env.robots:
+            self.solver.reached(name, self.env.robots[name].prev)
 
         # simulate until all tasks are completed
         while len(self.env.visited) < self.env.num_nodes and self.t_step < self.max_steps:
             # deactivate robot
-            # if self.t_step == 10:
-            #     self.deactivate_robot(3)
-            #     self.solver.calculate_mtsp(False)
-            #     for id in self.env.robots:
-            #         self.solver.assign(id, self.env.robots[id].prev)
+            if self.t_step == 10:
+                self.deactivate_robot(2)
+                self.solver.calculate_mtsp(False)
 
             # move robots
             self.move()
@@ -70,9 +68,8 @@ class Simulation:
         """
         Move robot
         """
-        inactive = []
-        for id, r in self.env.robots.items():
-            if r.next:
+        for name, r in self.env.robots.items():
+            if r.next and not r.done:
                 goal = self.env.nodes[r.next]
                 dir = np.array([goal[0]-r.pos[0], goal[1]-r.pos[1]])
                 dist = np.linalg.norm(dir)
@@ -82,28 +79,24 @@ class Simulation:
                     if dx > dist:
                         r.pos[0] = goal[0]
                         r.pos[1] = goal[1]
-                        self.solver.reached(id, r.next)
+                        self.solver.reached(name, r.next)
                     else:
                         x_next = r.pos + dir*dx
                         r.pos[0] = x_next[0]
                         r.pos[1] = x_next[1]
                 else:
-                    self.solver.reached(id, r.next)
-            else:
-                inactive.append(id)
-        for id in inactive:
-            self.env.remove_robot(id)
+                    self.solver.reached(name, r.next)
 
-    def deactivate_robot(self, id):
+    def deactivate_robot(self, name):
         """
         Deactivate robot
         """
         active_agent_status = {}
-        for r in self.env.robots:
-            if r != id:
-                active_agent_status[r] = True
+        for robot in self.env.robots.values():
+            if robot.name != name:
+                active_agent_status[robot.name] = True
             else:
-                active_agent_status[r] = False
+                active_agent_status[robot.name] = False
         self.env.fleet_update(active_agent_status)
 
 

@@ -4,7 +4,6 @@ Environment class
 """
 
 import numpy as np
-from itertools import combinations
 import heapq
 # from Robot import Robot
 from robosar_task_allocator.Robot import Robot
@@ -12,11 +11,11 @@ from robosar_task_allocator.Robot import Robot
 
 class Environment:
 
-    def __init__(self, nodes, adj, robots = {}):
+    def __init__(self, nodes=[], adj=[], robots={}):
         """
         nodes: nx2 np.array of task coordinates
         adj: nxn np.array adjacency matrix
-        robots: {id: Robot} dictionary
+        robots: {string: Robot} dictionary
         """
         self.nodes = nodes
         self.adj = adj
@@ -27,37 +26,48 @@ class Environment:
                     self.adj[i][j] = 0
                 elif self.adj[i][j] < 0:
                     d = self.dijkstra(i, j)
-                    assert d > 0
+                    if d < 0:
+                        print("WARNING: could not find path from {} to {}".format(nodes[i], nodes[j]))
+                        d = 3*np.linalg.norm(nodes[i]-nodes[j])
                     self.adj[i][j] = d
                     self.adj[j][i] = self.adj[i][j]
 
-        self.num_nodes = adj.shape[0]
+        self.num_nodes = len(adj)
         self.robots = robots
         self.id_dict = {}
-        for idx, id in enumerate(self.robots.keys()):
-            self.id_dict[id] = idx
+        for idx, name in enumerate(self.robots.keys()):
+            self.id_dict[name] = idx
         self.num_robots = len(self.robots)
         self.visited = set()
         for r in self.robots.values():
             self.visited.add(r.prev)
         self.frontier = set()
 
-    def add_robot(self, id, name, start):
+    def get_robot_id(self, name):
+        """
+        name: string
+        """
+        return self.id_dict[name]
+
+    def add_robot(self, name, start):
         """
         id: int
         start: int node number
         """
-        robot = Robot(id, name, self.nodes[start], start)
-        self.robots[id] = robot
+        robot = Robot(name, self.nodes[start], start)
+        self.robots[name] = robot
         self.num_robots = len(self.robots)
-        self.id_dict[id] = self.num_robots-1
+        self.id_dict[name] = self.num_robots-1
         self.visited.add(robot.prev)
 
     def remove_robot(self, agent):
+        """
+        agent: string
+        """
         self.robots.pop(agent)
         self.id_dict.pop(agent)
-        for idx, id in enumerate(self.robots.keys()):
-            self.id_dict[id] = idx
+        for idx, name in enumerate(self.robots.keys()):
+            self.id_dict[name] = idx
         self.num_robots = len(self.robots)
 
     def fleet_update(self, agent_active_status):
@@ -65,11 +75,12 @@ class Environment:
         agent_active_status: {id: Bool}
         """
         for agent, active in agent_active_status.items():
-            if not active:
+            if not active and agent in self.robots:
+                print("FLEET UPDATE: {} died".format(agent))
                 self.robots.pop(agent)
                 self.id_dict.pop(agent)
-        for idx, id in enumerate(self.robots.keys()):
-            self.id_dict[id] = idx
+        for idx, name in enumerate(self.robots.keys()):
+            self.id_dict[agent] = idx
         self.num_robots = len(self.robots)
 
     def dijkstra(self, start, goal):
@@ -81,7 +92,6 @@ class Environment:
         dist = [float('inf') for _ in range(m)]
         dist[start] = 0
         minHeap = [(0, start)]  # distance, node
-        d = -1
         while minHeap:
             d, s = heapq.heappop(minHeap)
             if d > dist[s]: continue
@@ -96,7 +106,7 @@ class Environment:
                 if dist[i] > newDist:
                     dist[i] = newDist
                     heapq.heappush(minHeap, (dist[i], i))
-        return d
+        return -1
 
 
 
