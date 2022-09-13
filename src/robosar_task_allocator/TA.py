@@ -117,7 +117,7 @@ class TA_mTSP(TA):
             r.done = False
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
                 self.assign(name, curr_node)
-        plt.pause(0.1)
+        # plt.pause(0.1)
 
 
     def assign(self, name, curr_node):

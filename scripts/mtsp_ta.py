@@ -12,18 +12,20 @@ Task Allocation node: main script to be executed.
 """
 
 import rospy
-from robosar_task_allocator.Environment import Environment
-from robosar_task_allocator.Robot import Robot
-from robosar_task_allocator.TA import *
-from robosar_task_allocator.task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 import numpy as np
-import pickle
+from cv_bridge import CvBridge
+import matplotlib.pyplot as plt
 import rospkg
 from actionlib_msgs.msg import GoalStatus
+from sensor_msgs.msg import Image
 from nav_msgs.msg import OccupancyGrid
 from std_msgs.msg import Bool
 from robosar_messages.srv import *
 from robosar_messages.msg import *
+from robosar_task_allocator.Environment import Environment
+from robosar_task_allocator.Robot import Robot
+from robosar_task_allocator.TA import *
+from robosar_task_allocator.task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
 import robosar_task_allocator.utils as utils
@@ -94,6 +96,15 @@ def get_agent_position(listener, scale, origin):
     robot_init = np.reshape(robot_init, (-1, 2))
     return robot_init, init_order
 
+def publish_image(image_pub):
+    canvas = plt.gca().figure.canvas
+    canvas.draw()
+    data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+    image = data.reshape(canvas.get_width_height()[::-1] + (3,))
+    br = CvBridge()
+    plt.savefig('foo.png')
+    image_pub.publish(br.cv2_to_imgmsg(image, "rgb8"))
+
 """
 Main function
 """
@@ -144,19 +155,19 @@ def mtsp_allocator():
         raise Exception("Task generation service call failed")
     nodes = refineNodes(3, nodes, data)
     # masking
-    idx = []
-    for i in range(len(nodes)):
-        if 90 <= nodes[i][0] <= 565:
-            idx.append(i)
-    nodes = nodes[idx]
-    print("Nodes received: {}".format(nodes))
+    # idx = []
+    # for i in range(len(nodes)):
+    #     if 90 <= nodes[i][0] <= 565:
+    #         idx.append(i)
+    # nodes = nodes[idx]
+    print("{} nodes received".format(len(nodes)))
 
     # get robot positions
     tflistener = tf.TransformListener()
     tflistener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
     robot_init, init_order = get_agent_position(tflistener, scale, origin)
     nodes = np.vstack((robot_init, nodes))
-    np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy", nodes)
+    np.save(package_path + "/src/robosar_task_allocator/saved_graphs/temp_points.npy", nodes)
 
     # Create graph
     n = nodes.shape[0]
@@ -165,12 +176,12 @@ def mtsp_allocator():
     if make_graph:
         print('creating graph')
         adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
-        np.save(package_path + "/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy", adj)
+        np.save(package_path + "/src/robosar_task_allocator/saved_graphs/temp_graph.npy", adj)
         print('done')
 
     # Create environment
     if not make_graph:
-        adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
+        adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/temp_graph.npy')
     if len(nodes) != len(adj):
         raise Exception("ERROR: length of nodes not equal to number in graph")
     env = Environment(nodes[:, :], adj)
@@ -185,11 +196,12 @@ def mtsp_allocator():
     print('done')
 
     # plot
+    image_pub = rospy.Publisher('task_allocation_image', Image, queue_size=10)
     utils.plot_pgm_data(data)
     plt.plot(nodes[:n, 0], nodes[:n, 1], 'ko', zorder=100)
     for r in range(len(env.robots)):
         plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-    plt.pause(2)
+    publish_image(image_pub)
 
     # Create listener object
     listener = TaskListenerRobosarControl(env.robots)
@@ -229,7 +241,7 @@ def mtsp_allocator():
                 plt.plot(nodes[node, 0], nodes[node, 1], 'go', zorder=200)
             for r in range(len(env.robots)):
                 plt.plot(nodes[solver.tours[r], 0], nodes[solver.tours[r], 1], '-')
-            plt.pause(3)
+            publish_image(image_pub)
 
         for robot in env.robots.values():
             status = listener.getStatus(robot.name)
@@ -262,6 +274,7 @@ def mtsp_allocator():
                 rospy.loginfo("Waiting for subscriber :")
                 rospy.sleep(1)
             task_pub.publish(task_msg)
+            publish_image(image_pub)
             rospy.sleep(1)
             # for robot in env.robots.values():
             #     if not robot.done:
