@@ -19,7 +19,7 @@ import rospkg
 from actionlib_msgs.msg import GoalStatus
 from sensor_msgs.msg import Image
 from nav_msgs.msg import OccupancyGrid
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Int32
 from robosar_messages.srv import *
 from robosar_messages.msg import *
 from robosar_task_allocator.Environment import Environment
@@ -102,7 +102,6 @@ def publish_image(image_pub):
     data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
     image = data.reshape(canvas.get_width_height()[::-1] + (3,))
     br = CvBridge()
-    plt.savefig('foo.png')
     image_pub.publish(br.cv2_to_imgmsg(image, "rgb8"))
 
 """
@@ -211,8 +210,7 @@ def mtsp_allocator():
 
     # task publisher
     task_pub = rospy.Publisher('task_allocation', task_allocation, queue_size=10)
-
-    # finished = [0 for i in env.robots]
+    task_num_pub = rospy.Publisher('tasks_completed', Int32, queue_size=10)
 
     # agent status update subscriber
     rospy.Subscriber("/robosar_agent_bringup_node/status", Bool, status_callback)
@@ -224,9 +222,6 @@ def mtsp_allocator():
 
         # update fleet
         if callback_triggered:
-            # for agent, active in agent_active_status.items():
-            #     if not active and agent in env.robots:
-            #         finished.pop(env.get_robot_id(agent))
             env.fleet_update(agent_active_status)
             print("replanning")
             solver.calculate_mtsp(False)
@@ -247,7 +242,7 @@ def mtsp_allocator():
             status = listener.getStatus(robot.name)
             if status == 2 and not robot.done:
                 solver.reached(robot.name, robot.next)
-                # finished[env.id_dict[robot.id]] = 1
+                task_num_pub.publish(len(env.visited)-env.num_robots)
                 if robot.next and robot.prev != robot.next:
                     listener.setBusyStatus(robot.name)
                     names.append(robot.name)
