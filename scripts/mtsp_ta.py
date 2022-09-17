@@ -29,7 +29,7 @@ from robosar_task_allocator.task_transmitter.task_listener_robosar_control impor
 from robosar_task_allocator.generate_graph import occupancy_map_8n
 from robosar_task_allocator.generate_graph.gridmap import OccupancyGridMap
 import robosar_task_allocator.utils as utils
-import time
+import argparse
 import tf
 
 rospack = rospkg.RosPack()
@@ -107,7 +107,7 @@ def publish_image(image_pub):
 """
 Main function
 """
-def mtsp_allocator():
+def mtsp_allocator(args):
     global callback_triggered
     rospy.init_node('task_allocator_mtsp', anonymous=True)
 
@@ -148,7 +148,7 @@ def mtsp_allocator():
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1, 2))
-        np.save(package_path+"/src/robosar_task_allocator/saved_graphs/scott_SVD.npy", nodes)
+        # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/scott_SVD.npy", nodes)
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
@@ -171,15 +171,14 @@ def mtsp_allocator():
     # Create graph
     n = nodes.shape[0]
     downsample = 1
-    make_graph = False
-    if make_graph:
+    if args.graph:
         print('creating graph')
         adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
         np.save(package_path + "/src/robosar_task_allocator/saved_graphs/temp_graph.npy", adj)
         print('done')
 
     # Create environment
-    if not make_graph:
+    if not args.graph:
         adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/temp_graph.npy')
     if len(nodes) != len(adj):
         raise Exception("ERROR: length of nodes not equal to number in graph")
@@ -271,19 +270,17 @@ def mtsp_allocator():
             task_pub.publish(task_msg)
             publish_image(image_pub)
             rospy.sleep(1)
-            # for robot in env.robots.values():
-            #     if not robot.done:
-            #         finished[env.id_dict[robot.id]] = 0
-            # names = []
-            # starts = []
-            # goals = []
 
         rate.sleep()
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-g", "--graph", help = "Make graph", type=Bool, default=False)
+    args = parser.parse_args()
+
     try:
-        mtsp_allocator()
+        mtsp_allocator(args)
     except rospy.ROSInterruptException:
         pass
     plt.close('all')
