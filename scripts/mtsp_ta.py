@@ -11,6 +11,7 @@ Task Allocation node: main script to be executed.
 - Assigns tasks to robots
 """
 
+from tokenize import String
 import rospy
 import numpy as np
 from cv_bridge import CvBridge
@@ -148,7 +149,6 @@ def mtsp_allocator(args):
         resp1 = get_waypoints(map_msg, 1, 20)
         nodes = resp1.waypoints
         nodes = np.reshape(nodes, (-1, 2))
-        # np.save(package_path+"/src/robosar_task_allocator/saved_graphs/scott_SVD.npy", nodes)
     except rospy.ServiceException as e:
         print("Task generation service call failed: %s" % e)
         raise Exception("Task generation service call failed")
@@ -166,20 +166,20 @@ def mtsp_allocator(args):
     tflistener.waitForTransform('map', list(agent_active_status.keys())[0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
     robot_init, init_order = get_agent_position(tflistener, scale, origin)
     nodes = np.vstack((robot_init, nodes))
-    np.save(package_path + "/src/robosar_task_allocator/saved_graphs/temp_points.npy", nodes)
 
     # Create graph
     n = nodes.shape[0]
     downsample = 1
-    if args.graph:
+    if args.make_graph:
         print('creating graph')
         adj = utils.create_graph_from_data(data, nodes, n, downsample, False)
-        np.save(package_path + "/src/robosar_task_allocator/saved_graphs/temp_graph.npy", adj)
+        np.save(package_path + "/src/robosar_task_allocator/saved_graphs/"+args.graph_name+"_points.npy", nodes)
+        np.save(package_path + "/src/robosar_task_allocator/saved_graphs/"+args.graph_name+"_graph.npy", adj)
         print('done')
 
     # Create environment
-    if not args.graph:
-        adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/temp_graph.npy')
+    if not args.make_graph:
+        adj = np.load(package_path + '/src/robosar_task_allocator/saved_graphs/'+args.graph_name+'_graph.npy')
     if len(nodes) != len(adj):
         raise Exception("ERROR: length of nodes not equal to number in graph")
     env = Environment(nodes[:, :], adj)
@@ -276,7 +276,8 @@ def mtsp_allocator(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-g", "--graph", help = "Make graph", type=Bool, default=False)
+    parser.add_argument("-m", "--make_graph", help = "Make graph", type=Bool, default=False)
+    parser.add_argument("-g", "--graph_name", help = "Graph name", type=str, default="temp")
     args = parser.parse_args()
 
     try:
