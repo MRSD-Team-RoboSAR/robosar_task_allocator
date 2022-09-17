@@ -11,13 +11,11 @@ Task Allocation node: main script to be executed.
 - Assigns tasks to robots
 """
 
-from tokenize import String
 import rospy
 import numpy as np
 from cv_bridge import CvBridge
 import matplotlib.pyplot as plt
 import rospkg
-from actionlib_msgs.msg import GoalStatus
 from sensor_msgs.msg import Image
 from nav_msgs.msg import OccupancyGrid
 from std_msgs.msg import Bool, Int32
