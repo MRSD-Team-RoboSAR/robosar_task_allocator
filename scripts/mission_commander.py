@@ -7,8 +7,6 @@ import tf
 from std_msgs.msg import Int32
 from robosar_messages.srv import *
 from robosar_messages.msg import *
-from mtsp_ta import MtspCommander
-from greedy_ta import GreedyCommander
 
 
 class MissionCommander:
@@ -16,10 +14,12 @@ class MissionCommander:
     def __init__(self, args):
         rospy.init_node('mission_commander', log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
-        rospy.Subscriber('/mission_status', Int32, self.handle_commands)
+        rospy.Subscriber('/system_mission_command',
+                         mission_command, self.handle_commands)
         self.args = args
         rospy.set_param('/make_graph', self.args.make_graph)
         rospy.set_param('/graph_name', self.args.graph_name)
+        # TODO: change to be loaded from rosparam
         rospy.set_param('/home_positions', [[45, 10], [49, 11], [50, 10]])
         self.launch_mission = False
         self.stop_mission = False
@@ -31,7 +31,7 @@ class MissionCommander:
     def mission_main(self):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            if self.launch_mission:
+            if self.launch_mission and self._tc_process is None:
                 self.execute()
                 self.launch_mission = False
             elif self.stop_mission:
@@ -40,14 +40,18 @@ class MissionCommander:
             elif self.home_mission:
                 self.homing()
                 self.home_mission = False
+
+            if self._tc_process and not self._tc_process.is_alive():
+                self._tc_process.stop()
+                self._tc_process = None
             rate.sleep()
 
     def handle_commands(self, msg):
-        if msg.data == 1:
+        if msg.data == mission_command.START:
             self.launch_mission = True
-        elif msg.data == 2:
+        elif msg.data == mission_command.STOP:
             self.stop_mission = True
-        elif msg.data == 3:
+        elif msg.data == mission_command.HOME:
             self.home_mission = True
         else:
             rospy.loginfo_throttle(1, "Invalid command published")
@@ -56,7 +60,7 @@ class MissionCommander:
         rospy.logdebug("Executing")
         if self.args.task_allocator == "mtsp":
             self._tc_node = roslaunch.core.Node(
-                "robosar_task_allocator", "mtsp_ta.py")
+                "robosar_task_allocator", "mtsp_ta.py", name="task_commander", output="screen")
         elif self.args.task_allocator == "greedy":
             self._tc_node = roslaunch.core.Node(
                 "robosar_task_allocator", "greedy_ta.py")

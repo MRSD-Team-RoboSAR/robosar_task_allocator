@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-
-# Created by Indraneel on 01/03/22
+"""
+Greedy Commander
+- This is deprecated lol
+"""
 
 from task_commander import TaskCommander
 import rospy
@@ -25,7 +27,6 @@ class GreedyCommander(TaskCommander):
     def execute(self):
         # Set up
         nodes = np.load(self.maps_path+"/outputs/willow-full_lean.npy")
-        #filename = maps_path+'/maps/willow-full.pgm'
 
         # Create robots
         print(nodes[0])
@@ -35,8 +36,8 @@ class GreedyCommander(TaskCommander):
         robots = [robot0, robot1, robot2]
         # Create environment
         adj = np.load(
-            self.package_path+'/src/robosar_task_allocator/willow_{}_graph.npy'.format(self._graph_name))
-        env = Environment(nodes[:n, :], adj, robots)
+            self.package_path+'/src/robosar_task_allocator/{}.npy'.format(self._graph_name))
+        env = Environment(nodes[:len(adj), :], adj, robots)
 
         solver = TA_greedy()
         solver.init(env)
@@ -65,7 +66,7 @@ class GreedyCommander(TaskCommander):
 
 
 if __name__ == '__main__':
-    rospy.init_node('task_commander', log_level=rospy.DEBUG)
+    rospy.init_node('task_commander', anonymous=False, log_level=rospy.DEBUG)
 
     try:
         tc = GreedyCommander()

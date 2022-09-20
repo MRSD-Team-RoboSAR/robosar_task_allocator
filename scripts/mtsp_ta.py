@@ -41,7 +41,7 @@ class MtspCommander(TaskCommander):
         Get rid of tasks that are too close to obstacles
         """
         idx = []
-        print(map.shape)
+        rospy.loginfo(map.shape)
         for i in range(len(nodes)):
             x = nodes[i][1]
             y = nodes[i][0]
@@ -63,7 +63,7 @@ class MtspCommander(TaskCommander):
         """
         rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
         try:
-            print("calling service")
+            rospy.loginfo("calling service")
             get_status = rospy.ServiceProxy(
                 '/robosar_agent_bringup_node/agent_status', agent_status)
             resp1 = get_status()
@@ -72,11 +72,11 @@ class MtspCommander(TaskCommander):
                 self.agent_active_status[a] = False
             for a in active_agents:
                 self.agent_active_status[a] = True
-            print(self.agent_active_status)
+            rospy.loginfo(self.agent_active_status)
             self.callback_triggered = True
 
         except rospy.ServiceException as e:
-            print("Agent status service call failed: %s" % e)
+            rospy.loginfo("Agent status service call failed: %s" % e)
 
     def get_agent_position(self, listener, scale, origin):
         """
@@ -107,7 +107,7 @@ class MtspCommander(TaskCommander):
     def execute(self):
         rospy.loginfo("Starting mTSP allocator")
         # Get active agents
-        print("calling agent status service")
+        rospy.loginfo("calling agent status service")
         rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
         try:
             get_status = rospy.ServiceProxy(
@@ -116,31 +116,31 @@ class MtspCommander(TaskCommander):
             active_agents = resp1.agents_active
             for a in active_agents:
                 self.agent_active_status[a] = True
-            print("{} agents active".format(len(self.agent_active_status)))
+            rospy.loginfo("{} agents active".format(len(self.agent_active_status)))
             assert len(self.agent_active_status) > 0
         except rospy.ServiceException as e:
-            print("Agent status service call failed: %s" % e)
+            rospy.loginfo("Agent status service call failed: %s" % e)
             raise Exception("Agent status service call failed")
 
         # Get map
-        print("Waiting for map")
+        rospy.loginfo("Waiting for map")
         map_msg = rospy.wait_for_message("/map", OccupancyGrid)
-        print("Map received")
+        rospy.loginfo("Map received")
 
         # Get waypoints
-        print("calling task generation service")
+        rospy.loginfo("calling task generation service")
         rospy.wait_for_service('taskgen_getwaypts')
         scale = map_msg.info.resolution
         origin = [map_msg.info.origin.position.x,
                   map_msg.info.origin.position.y]
-        print("map origin: {}".format(origin))
+        rospy.loginfo("map origin: {}".format(origin))
         data = np.reshape(
             map_msg.data, (map_msg.info.height, map_msg.info.width))
         free_space = 0
         for cell in map_msg.data:
             if 0 <= cell < 100:
                 free_space += 1
-        print("Map Area: {}".format(free_space * scale * scale))
+        rospy.loginfo("Map Area: {}".format(free_space * scale * scale))
         try:
             get_waypoints = rospy.ServiceProxy(
                 'taskgen_getwaypts', taskgen_getwaypts)
@@ -148,7 +148,7 @@ class MtspCommander(TaskCommander):
             nodes = resp1.waypoints
             nodes = np.reshape(nodes, (-1, 2))
         except rospy.ServiceException as e:
-            print("Task generation service call failed: %s" % e)
+            rospy.loginfo("Task generation service call failed: %s" % e)
             raise Exception("Task generation service call failed")
         nodes = self.refineNodes(3, nodes, data)
         # masking
@@ -157,7 +157,7 @@ class MtspCommander(TaskCommander):
         #     if 90 <= nodes[i][0] <= 565:
         #         idx.append(i)
         # nodes = nodes[idx]
-        print("{} nodes received".format(len(nodes)))
+        rospy.loginfo("{} nodes received".format(len(nodes)))
 
         # get robot positions
         tflistener = tf.TransformListener()
@@ -171,14 +171,14 @@ class MtspCommander(TaskCommander):
         n = nodes.shape[0]
         downsample = 1
         if self._make_graph:
-            print('creating graph')
+            rospy.loginfo('creating graph')
             adj = utils.create_graph_from_data(
                 data, nodes, n, downsample, False)
             np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
                     self._graph_name+"_points.npy", nodes)
             np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
                     self._graph_name+"_graph.npy", adj)
-            print('done')
+            rospy.loginfo('done')
 
         # Create environment
         if not self._make_graph:
@@ -193,10 +193,10 @@ class MtspCommander(TaskCommander):
         for name in self.agent_active_status:
             env.add_robot(name, init_order.index(name))
 
-        print('routing')
+        rospy.loginfo('routing')
         solver = TA_mTSP()
         solver.init(env, 5)
-        print('done')
+        rospy.loginfo('done')
 
         # plot
         image_pub = rospy.Publisher(
@@ -230,9 +230,9 @@ class MtspCommander(TaskCommander):
             # update fleet
             if self.callback_triggered:
                 env.fleet_update(self.agent_active_status)
-                print("replanning")
+                rospy.loginfo("replanning")
                 solver.calculate_mtsp(False)
-                print("done")
+                rospy.loginfo("done")
                 self.callback_triggered = False
 
                 # plot
@@ -244,7 +244,6 @@ class MtspCommander(TaskCommander):
                 for r in range(len(env.robots)):
                     plt.plot(nodes[solver.tours[r], 0],
                              nodes[solver.tours[r], 1], '-')
-                self.publish_image(image_pub)
 
             for robot in env.robots.values():
                 status = listener.getStatus(robot.name)
@@ -262,14 +261,16 @@ class MtspCommander(TaskCommander):
                         starts.append([trans[0], trans[1]])
                         goals.append(utils.pixels_to_m(
                             env.nodes[robot.next], scale, origin))
-                        print(env.visited)
+                        plt.plot(env.nodes[robot.next][0], env.nodes[robot.next][1], 'ro', zorder=199)
+                        rospy.loginfo(env.visited)
+
             if len(solver.env.visited) == len(nodes):
-                print('FINISHED')
+                rospy.loginfo('FINISHED')
                 break
 
             # publish tasks
             if names:
-                print("publishing")
+                rospy.loginfo("publishing")
                 task_msg = task_allocation()
                 task_msg.id = names
                 task_msg.startx = [s[0] for s in starts]
@@ -287,7 +288,7 @@ class MtspCommander(TaskCommander):
 
 
 if __name__ == '__main__':
-    rospy.init_node('task_commander', log_level=rospy.DEBUG)
+    rospy.init_node('task_commander', anonymous=False, log_level=rospy.INFO)
 
     try:
         tc = MtspCommander()
