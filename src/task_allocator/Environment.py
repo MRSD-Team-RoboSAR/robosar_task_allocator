@@ -5,8 +5,7 @@ Environment class
 
 import numpy as np
 import heapq
-# from Robot import Robot
-from robosar_task_allocator.Robot import Robot
+from task_allocator.Robot import Robot
 
 
 class Environment:

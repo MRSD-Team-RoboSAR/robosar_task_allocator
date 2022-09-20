@@ -174,16 +174,16 @@ class MtspCommander(TaskCommander):
             print('creating graph')
             adj = utils.create_graph_from_data(
                 data, nodes, n, downsample, False)
-            np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
+            np.save(self.package_path + "/src/saved_graphs/" +
                     self._graph_name+"_points.npy", nodes)
-            np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
+            np.save(self.package_path + "/src/saved_graphs/" +
                     self._graph_name+"_graph.npy", adj)
             print('done')
 
         # Create environment
         if not self._make_graph:
-            adj = np.load(self.package_path + '/src/robosar_task_allocator/saved_graphs/' +
-                          self._graph_name+'_graph.npy')
+            adj = np.load(self.package_path +
+                          '/src/saved_graphs/' + self._graph_name+'_graph.npy')
         if len(nodes) != len(adj):
             raise Exception(
                 "ERROR: length of nodes not equal to number in graph")
