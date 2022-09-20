@@ -15,9 +15,9 @@ from actionlib_msgs.msg import GoalStatus
 
 class GreedyCommander(TaskCommander):
 
-    def __init__(self, args):
+    def __init__(self):
         super().__init__()
-        self.args = args
+        self._graph_name = rospy.get_param("graph_name")
 
     def pixels_to_m(self, pixels):
         return [pixels[0]*0.1, pixels[1]*0.1]
@@ -35,7 +35,7 @@ class GreedyCommander(TaskCommander):
         robots = [robot0, robot1, robot2]
         # Create environment
         adj = np.load(
-            self.package_path+'/src/robosar_task_allocator/willow_{}_graph.npy'.format(self.args.graph_name))
+            self.package_path+'/src/robosar_task_allocator/willow_{}_graph.npy'.format(self._graph_name))
         env = Environment(nodes[:n, :], adj, robots)
 
         solver = TA_greedy()
@@ -48,7 +48,7 @@ class GreedyCommander(TaskCommander):
         rospy.loginfo(
             'Task_Alloc_Greedy] Buckle up! Running greedy allocator!')
 
-        while not rospy.is_shutdown() and not self.e_stop:
+        while not rospy.is_shutdown():
 
             for robot in robots:
                 status = transmitter.getStatus(robot.id)
@@ -65,15 +65,10 @@ class GreedyCommander(TaskCommander):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--make_graph",
-                        help="Make graph", type=bool, default=False)
-    parser.add_argument("-g", "--graph_name",
-                        help="Graph name", type=str, default="temp")
-    args = parser.parse_args()
+    rospy.init_node('task_commander', log_level=rospy.DEBUG)
 
     try:
-        tc = GreedyCommander(args)
+        tc = GreedyCommander()
         tc.execute()
     except rospy.ROSInterruptException:
         pass

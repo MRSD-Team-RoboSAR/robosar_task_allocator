@@ -31,9 +31,10 @@ import tf
 
 class MtspCommander(TaskCommander):
 
-    def __init__(self, args):
+    def __init__(self):
         super().__init__()
-        self.args = args
+        self._make_graph = rospy.get_param("make_graph")
+        self._graph_name = rospy.get_param("graph_name")
 
     def refineNodes(self, r, nodes, map):
         """
@@ -169,20 +170,20 @@ class MtspCommander(TaskCommander):
         # Create graph
         n = nodes.shape[0]
         downsample = 1
-        if self.args.make_graph:
+        if self._make_graph:
             print('creating graph')
             adj = utils.create_graph_from_data(
                 data, nodes, n, downsample, False)
             np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
-                    self.args.graph_name+"_points.npy", nodes)
+                    self._graph_name+"_points.npy", nodes)
             np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
-                    self.args.graph_name+"_graph.npy", adj)
+                    self._graph_name+"_graph.npy", adj)
             print('done')
 
         # Create environment
-        if not self.args.make_graph:
+        if not self._make_graph:
             adj = np.load(self.package_path + '/src/robosar_task_allocator/saved_graphs/' +
-                          self.args.graph_name+'_graph.npy')
+                          self._graph_name+'_graph.npy')
         if len(nodes) != len(adj):
             raise Exception(
                 "ERROR: length of nodes not equal to number in graph")
@@ -221,7 +222,7 @@ class MtspCommander(TaskCommander):
         rospy.Subscriber("/robosar_agent_bringup_node/status",
                          Bool, self.status_callback)
 
-        while not rospy.is_shutdown() and not self.e_stop:
+        while not rospy.is_shutdown():
             names = []
             starts = []
             goals = []
@@ -286,15 +287,10 @@ class MtspCommander(TaskCommander):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--make_graph",
-                        help="Make graph", type=bool, default=False)
-    parser.add_argument("-g", "--graph_name",
-                        help="Graph name", type=str, default="temp")
-    args = parser.parse_args()
+    rospy.init_node('task_commander', log_level=rospy.DEBUG)
 
     try:
-        tc = MtspCommander(args)
+        tc = MtspCommander()
         tc.execute()
     except rospy.ROSInterruptException:
         pass

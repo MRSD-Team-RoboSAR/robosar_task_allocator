@@ -2,6 +2,7 @@
 
 import rospy
 import argparse
+import roslaunch
 import tf
 from std_msgs.msg import Int32
 from robosar_messages.srv import *
@@ -13,36 +14,60 @@ from greedy_ta import GreedyCommander
 class MissionCommander:
 
     def __init__(self, args):
-        rospy.init_node('mission_commander', anonymous=True,
-                        log_level=rospy.DEBUG)
+        rospy.init_node('mission_commander', log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
         rospy.Subscriber('/mission_status', Int32, self.handle_commands)
         self.args = args
-        self.tc_ = None
+        rospy.set_param('/make_graph', self.args.make_graph)
+        rospy.set_param('/graph_name', self.args.graph_name)
+        rospy.set_param('/home_positions', [[45, 10], [49, 11], [50, 10]])
+        self.launch_mission = False
+        self.stop_mission = False
+        self.home_mission = False
+        self._tc_node = None
+        self._launch = roslaunch.scriptapi.ROSLaunch()
+        self._tc_process = None
+
+    def mission_main(self):
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self.launch_mission:
+                self.execute()
+                self.launch_mission = False
+            elif self.stop_mission:
+                self.stop()
+                self.stop_mission = False
+            elif self.home_mission:
+                self.homing()
+                self.home_mission = False
+            rate.sleep()
 
     def handle_commands(self, msg):
         if msg.data == 1:
-            self.execute()
+            self.launch_mission = True
         elif msg.data == 2:
-            self.stop()
+            self.stop_mission = True
         elif msg.data == 3:
-            self.homing()
+            self.home_mission = True
         else:
             rospy.loginfo_throttle(1, "Invalid command published")
 
     def execute(self):
         rospy.logdebug("Executing")
         if self.args.task_allocator == "mtsp":
-            self.tc_ = MtspCommander(self.args)
+            self._tc_node = roslaunch.core.Node(
+                "robosar_task_allocator", "mtsp_ta.py")
         elif self.args.task_allocator == "greedy":
-            self.tc_ = GreedyCommander(self.args)
+            self._tc_node = roslaunch.core.Node(
+                "robosar_task_allocator", "greedy_ta.py")
         else:
             raise Exception("Invalid TA type")
-        self.tc_.execute()
+        self._launch.start()
+        self._tc_process = self._launch.launch(self._tc_node)
 
     def homing(self):
-        self.tc_.stop()
-        
+        self.stop()
+
         starts = []
         goals = []
         names = []
@@ -78,20 +103,15 @@ class MissionCommander:
             robot_init.append([trans[0], trans[1]])
 
         # fill in message
+        goals = rospy.get_param('/home_positions')
         for i, name in enumerate(agent_active_status.keys()):
             names.append(name)
             starts.append(robot_init[i])
-            if i % 2 == 0:
-                goals.append([0+0.6*((i+1)//2), 0])
-            else:
-                goals.append([0 - 0.6 * ((i+1)//2), 0])
 
         # publish
         task_pub = rospy.Publisher(
             'task_allocation', task_allocation, queue_size=10)
-        print("publishing")
         task_msg = task_allocation()
-        print(goals)
         task_msg.id = names
         task_msg.startx = [s[0] for s in starts]
         task_msg.starty = [s[1] for s in starts]
@@ -102,11 +122,12 @@ class MissionCommander:
             rospy.sleep(1)
         task_pub.publish(task_msg)
         rospy.sleep(1)
-        print("sent")
+        print("sent homing positions {}".format(goals))
 
     def stop(self):
-        self.tc_.stop()
-        rospy.signal_shutdown("E-Stop")
+        if self._tc_node:
+            self._tc_process.stop()
+        rospy.logwarn("Stopping task allocation.")
 
 
 if __name__ == '__main__':
@@ -120,7 +141,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     try:
-        MissionCommander(args)
+        mc = MissionCommander(args)
+        mc.mission_main()
     except rospy.ROSInterruptException:
         pass
     rospy.spin()

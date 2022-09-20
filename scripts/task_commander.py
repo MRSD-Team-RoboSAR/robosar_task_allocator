@@ -18,10 +18,6 @@ class TaskCommander(ABC):
         self.package_path = self.rospack.get_path('robosar_task_allocator')
         self.agent_active_status = {}
         self.callback_triggered = False
-        self.e_stop = False
-
-    def stop(self):
-        self.e_stop = True
 
     @abstractmethod
     def execute(self):
