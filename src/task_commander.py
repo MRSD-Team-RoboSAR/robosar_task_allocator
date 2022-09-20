@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+"""
+Task Commander
+
+Interface for different task commanders.
+"""
 
 from abc import ABC, abstractmethod
 import rospkg
-import rospy
-from sensor_msgs.msg import Image
-from nav_msgs.msg import OccupancyGrid
-from std_msgs.msg import Bool, Int32
 from robosar_messages.srv import *
 from robosar_messages.msg import *
 

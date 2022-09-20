@@ -2,7 +2,8 @@
 
 # Created by Indraneel and Rachel on 01/03/22
 """
-Task Allocation node: main script to be executed.
+Task Commander Node
+
 - Gets map Occupancy Grid as a message
 - Gets tasks by calling task generation service
 - Creates graph of tasks in map
@@ -21,11 +22,10 @@ from std_msgs.msg import Bool, Int32
 from robosar_messages.srv import *
 from robosar_messages.msg import *
 from task_commander import TaskCommander
-from robosar_task_allocator.Environment import Environment
-from robosar_task_allocator.TA import *
-from robosar_task_allocator.task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
-import robosar_task_allocator.utils as utils
-import argparse
+from task_allocator.Environment import Environment
+from task_allocator.TA import *
+from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
+import task_allocator.utils as utils
 import tf
 
 

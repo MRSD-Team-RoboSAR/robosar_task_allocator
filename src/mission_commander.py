@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+Mission Commander Node
+
+- Publishes tasks for agents.
+- Controls task, e-stop, and homing commands.
+
+"""
 
 import rospy
 import argparse
@@ -7,8 +14,6 @@ import tf
 from std_msgs.msg import Int32
 from robosar_messages.srv import *
 from robosar_messages.msg import *
-from mtsp_ta import MtspCommander
-from greedy_ta import GreedyCommander
 
 
 class MissionCommander:
@@ -29,6 +34,9 @@ class MissionCommander:
         self._tc_process = None
 
     def mission_main(self):
+        """
+        Main loop
+        """
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             if self.launch_mission:
@@ -53,6 +61,9 @@ class MissionCommander:
             rospy.loginfo_throttle(1, "Invalid command published")
 
     def execute(self):
+        """
+        Start task commands
+        """
         rospy.logdebug("Executing")
         if self.args.task_allocator == "mtsp":
             self._tc_node = roslaunch.core.Node(
@@ -66,6 +77,9 @@ class MissionCommander:
         self._tc_process = self._launch.launch(self._tc_node)
 
     def homing(self):
+        """
+        Start homing command
+        """
         self.stop()
 
         starts = []
@@ -125,6 +139,9 @@ class MissionCommander:
         print("sent homing positions {}".format(goals))
 
     def stop(self):
+        """
+        Start e-stop command
+        """
         if self._tc_node:
             self._tc_process.stop()
         rospy.logwarn("Stopping task allocation.")

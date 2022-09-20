@@ -4,12 +4,11 @@
 
 from task_commander import TaskCommander
 import rospy
-from robosar_task_allocator.Environment import Environment
-from robosar_task_allocator.Robot import Robot
-from robosar_task_allocator.TA import *
-from robosar_task_allocator.task_transmitter.task_tx_move_base import TaskTxMoveBase
+from task_allocator.Environment import Environment
+from task_allocator.Robot import Robot
+from task_allocator.TA import *
+from task_transmitter.task_tx_move_base import TaskTxMoveBase
 import numpy as np
-import argparse
 from actionlib_msgs.msg import GoalStatus
 
 
