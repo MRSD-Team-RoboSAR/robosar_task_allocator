@@ -21,10 +21,10 @@ from std_msgs.msg import Bool, Int32
 from robosar_messages.srv import *
 from robosar_messages.msg import *
 from task_commander import TaskCommander
-from robosar_task_allocator.Environment import Environment
-from robosar_task_allocator.TA import *
-from robosar_task_allocator.task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
-import robosar_task_allocator.utils as utils
+from task_allocator.Environment import Environment
+from task_allocator.TA import *
+from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
+import task_allocator.utils as utils
 import argparse
 import tf
 
@@ -174,15 +174,15 @@ class MtspCommander(TaskCommander):
             rospy.loginfo('creating graph')
             adj = utils.create_graph_from_data(
                 data, nodes, n, downsample, False)
-            np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
+            np.save(self.package_path + "/src/saved_graphs/" +
                     self._graph_name+"_points.npy", nodes)
-            np.save(self.package_path + "/src/robosar_task_allocator/saved_graphs/" +
+            np.save(self.package_path + "/src/saved_graphs/" +
                     self._graph_name+"_graph.npy", adj)
             rospy.loginfo('done')
 
         # Create environment
         if not self._make_graph:
-            adj = np.load(self.package_path + '/src/robosar_task_allocator/saved_graphs/' +
+            adj = np.load(self.package_path + '/src/saved_graphs/' +
                           self._graph_name+'_graph.npy')
         if len(nodes) != len(adj):
             raise Exception(

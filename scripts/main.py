@@ -5,13 +5,10 @@ Main script to be executed. Used for testing without ROS.
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from Robot import Robot
-from TA import *
-import utils
-from Environment import Environment
-from Simulation import Simulation
-import pickle
-import cv2
+from task_allocator.TA import *
+import task_allocator.utils as utils
+from task_allocator.Environment import Environment
+from task_allocator.Simulation import Simulation
 
 # Random graph
 def distance(c1, c2):

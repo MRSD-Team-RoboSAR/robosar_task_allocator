@@ -9,7 +9,7 @@ import actionlib
 
 #from robosar_controller.srv import *
 from robosar_controller.msg import *
-from robosar_task_allocator.Robot import Robot
+from task_allocator.Robot import Robot
 
 import time
 from actionlib_msgs.msg import GoalStatusArray, GoalStatus

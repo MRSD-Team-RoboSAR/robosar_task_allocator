@@ -4,7 +4,6 @@ import rospy
 import argparse
 import roslaunch
 import tf
-from std_msgs.msg import Int32
 from robosar_messages.srv import *
 from robosar_messages.msg import *
 
