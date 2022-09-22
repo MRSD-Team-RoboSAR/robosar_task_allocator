@@ -3,6 +3,8 @@ Main script to be executed. Used for testing without ROS.
 """
 
 import random
+import os
+import rospkg
 import numpy as np
 import matplotlib.pyplot as plt
 from task_allocator.TA import *
@@ -33,10 +35,11 @@ if __name__ == '__main__':
     # n = 40
     make_graph = False
     downsample = 5
-    # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/saved_graphs/vicon_lab_points.npy")
-    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/saved_graphs/scott_SVD_points.npy")
-    # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/generate_graph/maps/localization_map_lab.pgm'
-    filename = '/home/rachelzheng/robosar_ws/src/robosar_navigation/maps/scott_hall_SVD.pgm'
+    rospack = rospkg.RosPack()
+    package_path = rospack.get_path('robosar_task_allocator')
+    map_path = rospack.get_path('robosar_navigation')
+    nodes = np.load(os.path.join(package_path, "src/saved_graphs/scott_SVD_points.npy"))
+    filename = os.path.join(map_path, 'maps/scott_hall_SVD.pgm')
     if make_graph:
         print('creating graph')
         adj = utils.create_graph_from_file(filename, nodes, len(nodes), downsample, False)
@@ -45,7 +48,7 @@ if __name__ == '__main__':
     utils.plot_pgm(filename)
 
     # Create environment
-    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/saved_graphs/scott_SVD_graph.npy')
+    adj = np.load(os.path.join(package_path, 'src/saved_graphs/scott_SVD_graph.npy'))
     n = len(nodes)
     env = Environment(nodes[:n,:], adj)
 
