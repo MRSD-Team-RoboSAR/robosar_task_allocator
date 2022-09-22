@@ -33,9 +33,9 @@ if __name__ == '__main__':
     # n = 40
     make_graph = False
     downsample = 5
-    # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/vicon_lab_points.npy")
-    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/scott_SVD_points.npy")
-    # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/generate_graph/maps/localization_map_lab.pgm'
+    # nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/saved_graphs/vicon_lab_points.npy")
+    nodes = np.load("/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/saved_graphs/scott_SVD_points.npy")
+    # filename = '/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/generate_graph/maps/localization_map_lab.pgm'
     filename = '/home/rachelzheng/robosar_ws/src/robosar_navigation/maps/scott_hall_SVD.pgm'
     if make_graph:
         print('creating graph')
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     utils.plot_pgm(filename)
 
     # Create environment
-    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/robosar_task_allocator/saved_graphs/scott_SVD_graph.npy')
+    adj = np.load('/home/rachelzheng/robosar_ws/src/robosar_task_allocator/src/saved_graphs/scott_SVD_graph.npy')
     n = len(nodes)
     env = Environment(nodes[:n,:], adj)
 
