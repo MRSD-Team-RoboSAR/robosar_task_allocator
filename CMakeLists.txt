@@ -123,7 +123,7 @@ include_directories(
 )
 
 ## Declare a C++ library
-add_library(robosar_task_allocator src/frontier_exploration/frontier_search.cpp)
+add_library(robosar_task_allocator src/frontier_exploration/frontier_search_node.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

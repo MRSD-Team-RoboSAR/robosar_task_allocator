@@ -22,13 +22,15 @@ using costmap_2d::NO_INFORMATION;
 using costmap_2d::FREE_SPACE;
 using robosar_messages::Frontier;
 
+
 FrontierSearch::FrontierSearch(costmap_2d::Costmap2D &costmap, unsigned int min_frontier_size,
   const std::string &travel_point) :
     costmap_(costmap), min_frontier_size_(min_frontier_size), travel_point_(travel_point) { }
 
-std::list<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
+
+std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
 {
-    std::list<Frontier> frontier_list;
+    std::vector<Frontier> frontier_list;
 
     // Sanity check that robot is inside costmap bounds before searching
     unsigned int mx, my;

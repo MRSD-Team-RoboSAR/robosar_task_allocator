@@ -3,7 +3,6 @@
 
 #include <robosar_messages/Frontier.h>
 #include <costmap_2d/costmap_2d.h>
-#include <list>
 #include <string>
 #include <vector>
 
@@ -30,7 +29,7 @@ public:
      * @param position Initial position to search from
      * @return List of frontiers, if any
      */
-    std::list<robosar_messages::Frontier> searchFrom(geometry_msgs::Point position);
+    std::vector<robosar_messages::Frontier> searchFrom(geometry_msgs::Point position);
 
 protected:
     /**
