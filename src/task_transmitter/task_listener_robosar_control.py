@@ -69,7 +69,7 @@ class TaskListenerRobosarControl:
             return self.status
 
         def callback(self,data):
-            print(data.data)
+            #print(data.data)
             status = data.data
             if(status == data.BUSY):
                 self.status = self.BUSY

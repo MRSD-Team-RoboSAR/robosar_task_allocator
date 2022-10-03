@@ -138,7 +138,7 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--task_allocator",
                         help="Task allocator type", type=str, default="mtsp")
     parser.add_argument("-m", "--make_graph",
-                        help="Make graph", type=bool, default=False)
+                        help="Make graph", type=bool, default=True)
     parser.add_argument("-g", "--graph_name",
                         help="Graph name", type=str, default="temp")
     args = parser.parse_args()
