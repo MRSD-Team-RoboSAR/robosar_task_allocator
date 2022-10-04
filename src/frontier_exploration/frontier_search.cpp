@@ -31,6 +31,7 @@ FrontierSearch::FrontierSearch(costmap_2d::Costmap2D &costmap, unsigned int min_
 std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
 {
     std::vector<Frontier> frontier_list;
+    ROS_INFO("starting search");
 
     // Sanity check that robot is inside costmap bounds before searching
     unsigned int mx, my;
