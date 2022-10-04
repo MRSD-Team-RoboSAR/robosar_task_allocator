@@ -44,21 +44,6 @@ class MissionCommander:
                 self._tc_process = None
             rate.sleep()
 
-    def get_agent_position(self):
-        """
-        Get robot positions
-        """
-        tflistener = tf.TransformListener()
-        robot_init = []
-        for name in self.agent_active_status:
-            now = rospy.Time.now()
-            tflistener.waitForTransform(
-                'map', name + '/base_link', now, rospy.Duration(1.0))
-            (trans, rot) = tflistener.lookupTransform(
-                'map', name + '/base_link', now)
-            robot_init.append([trans[0], trans[1]])
-        return robot_init
-
     def handle_commands(self, msg):
         if msg.data == mission_command.START:
             self.launch_mission = True
