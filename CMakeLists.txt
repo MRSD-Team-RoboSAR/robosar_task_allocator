@@ -12,6 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   robosar_messages
+  tf
+  tf2_ros
+  costmap_2d
 )
 
 ## System dependencies are found with CMake's conventions
@@ -103,12 +106,12 @@ catkin_python_setup()
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-# catkin_package(
-#  INCLUDE_DIRS include
+catkin_package(
+ INCLUDE_DIRS include
 #  LIBRARIES stuff
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+ CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
-# )
+)
 
 ###########
 ## Build ##
@@ -118,12 +121,11 @@ catkin_python_setup()
 ## Your package locations should be listed before other locations
 include_directories(
   include
-  include/${PROJECT_NAME}
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-add_library(robosar_task_allocator src/frontier_exploration/frontier_search_node.cpp)
+add_library(${PROJECT_NAME} src/frontier_exploration/frontier_search.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -133,7 +135,7 @@ add_library(robosar_task_allocator src/frontier_exploration/frontier_search_node
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/stuff_node.cpp)
+add_executable(frontier_search_node src/frontier_exploration/frontier_search_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -143,10 +145,10 @@ add_library(robosar_task_allocator src/frontier_exploration/frontier_search_node
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(frontier_search_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(frontier_search_node ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(frontier_search_node ${catkin_LIBRARIES} ${PROJECT_NAME} ${Boost_LIBRARIES})
 
 #############
 ## Install ##
@@ -164,9 +166,9 @@ add_library(robosar_task_allocator src/frontier_exploration/frontier_search_node
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-# install(TARGETS ${PROJECT_NAME}_node
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(TARGETS frontier_search_node
+   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
