@@ -15,7 +15,10 @@ bool get_frontiers(robosar_messages::frontier_exploration::Request &req, robosar
     ROS_INFO("Made costmap object");
     frontier_exploration::FrontierSearch frontierSearch(*(costmap_ros_->getCostmap()), req.min_frontier_size, "centroid");
     ROS_INFO("Got costmap");
-    resp.frontiers = frontierSearch.searchFrom(req.start_point);
+    geometry_msgs::PoseStamped robot_pose;
+    costmap_ros_->getRobotPose(robot_pose);
+    ROS_INFO("origin x = %f", robot_pose.pose.position.x);
+    resp.frontiers = frontierSearch.searchFrom(robot_pose.pose.position);
     return true;
 }
 

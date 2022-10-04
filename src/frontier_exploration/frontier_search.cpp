@@ -34,12 +34,13 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
     ROS_INFO("starting search");
 
     // Sanity check that robot is inside costmap bounds before searching
-    unsigned int mx, my;
-    if (!costmap_.worldToMap(position.x, position.y, mx, my))
-    {
-        ROS_ERROR("Robot out of costmap bounds, cannot search for frontiers");
-        return frontier_list;
-    }
+    unsigned int mx = costmap_.getSizeInCellsX()/2, my = costmap_.getSizeInCellsY()/2;
+    // if (!costmap_.worldToMap(position.x, position.y, mx, my))
+    // {
+    //     ROS_ERROR("Robot out of costmap bounds, cannot search for frontiers");
+    //     return frontier_list;
+    // }
+    ROS_INFO("mx: %d, my: %d", mx, my);
 
     // make sure map is consistent and locked for duration of search
     boost::unique_lock < costmap_2d::Costmap2D::mutex_t > lock(*(costmap_.getMutex()));
@@ -62,6 +63,7 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
     if (nearestCell(clear, pos, FREE_SPACE, costmap_))
     {
         bfs.push(clear);
+        ROS_INFO("nearest clear cell %d", clear);
     }
     else
     {
@@ -83,10 +85,12 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
             {
                 visited_flag[nbr] = true;
                 bfs.push(nbr);
+                ROS_INFO("found free cell");
                 // check if cell is new frontier cell (unvisited, NO_INFORMATION, free neighbour)
             }
             else if (isNewFrontierCell(nbr, frontier_flag))
             {
+                ROS_INFO("found frontier cell");
                 frontier_flag[nbr] = true;
                 Frontier new_frontier = buildNewFrontier(nbr, pos, frontier_flag);
                 if (new_frontier.size > min_frontier_size_)
@@ -192,6 +196,7 @@ Frontier FrontierSearch::buildNewFrontier(unsigned int initial_cell, unsigned in
 bool FrontierSearch::isNewFrontierCell(unsigned int idx, const std::vector<bool>& frontier_flag)
 {
     // check that cell is unknown and not already marked as frontier
+    ROS_INFO("unknown space: %d", map_[idx]);
     if (map_[idx] != NO_INFORMATION || frontier_flag[idx])
     {
         return false;
