@@ -11,6 +11,7 @@ from robosar_messages.msg import *
 class MissionCommander:
 
     def __init__(self, args):
+        rospy.set_param('use_sim_time', True)
         rospy.init_node('mission_commander', log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
         rospy.Subscriber('/system_mission_command',
@@ -18,8 +19,6 @@ class MissionCommander:
         self.args = args
         rospy.set_param('/make_graph', self.args.make_graph)
         rospy.set_param('/graph_name', self.args.graph_name)
-        # TODO: change to be loaded from rosparam
-        rospy.set_param('/home_positions', [[45, 10], [49, 11], [50, 10]])
         self.launch_mission = False
         self.stop_mission = False
         self.home_mission = False
@@ -44,6 +43,21 @@ class MissionCommander:
                 self._tc_process.stop()
                 self._tc_process = None
             rate.sleep()
+
+    def get_agent_position(self):
+        """
+        Get robot positions
+        """
+        tflistener = tf.TransformListener()
+        robot_init = []
+        for name in self.agent_active_status:
+            now = rospy.Time.now()
+            tflistener.waitForTransform(
+                'map', name + '/base_link', now, rospy.Duration(1.0))
+            (trans, rot) = tflistener.lookupTransform(
+                'map', name + '/base_link', now)
+            robot_init.append([trans[0], trans[1]])
+        return robot_init
 
     def handle_commands(self, msg):
         if msg.data == mission_command.START:
@@ -96,7 +110,7 @@ class MissionCommander:
         robot_init = []
         listener = tf.TransformListener()
         listener.waitForTransform('map', list(agent_active_status.keys())[
-                                  0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
+                                  0] + '/base_link', rospy.Time(), rospy.Duration(5.0))
         for name in agent_active_status:
             now = rospy.Time.now()
             listener.waitForTransform(
