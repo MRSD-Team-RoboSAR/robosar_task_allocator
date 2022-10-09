@@ -100,6 +100,7 @@ class TA_mTSP(TA):
         # print("{}: {}".format(id, self.tours[self.env.id_dict[id]]))
         self.tours[self.env.get_robot_id(name)].pop(0)
         if not self.tours[self.env.get_robot_id(name)]: # if robot has finished
+            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
             r.done = True
         if r.next is None: # first assignment
             plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)

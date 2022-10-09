@@ -11,7 +11,7 @@ from robosar_messages.msg import *
 class MissionCommander:
 
     def __init__(self, args):
-        rospy.set_param('use_sim_time', True)
+        # rospy.set_param('use_sim_time', True)
         rospy.init_node('mission_commander', log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
         rospy.Subscriber('/system_mission_command',
