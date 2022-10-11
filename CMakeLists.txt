@@ -163,8 +163,8 @@ target_link_libraries(frontier_detector_node ${catkin_LIBRARIES} ${PROJECT_NAME}
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 # catkin_install_python(PROGRAMS
-#    scripts/homing.py
-#    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#     src/frontier_exploration/scripts/frontier_filter.py
+#     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 #  )
 
 ## Mark executables for installation
