@@ -11,6 +11,7 @@ from robosar_messages.msg import *
 class MissionCommander:
 
     def __init__(self, args):
+        # rospy.set_param('use_sim_time', True)
         rospy.init_node('mission_commander', log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
         rospy.Subscriber('/system_mission_command',
@@ -18,8 +19,6 @@ class MissionCommander:
         self.args = args
         rospy.set_param('/make_graph', self.args.make_graph)
         rospy.set_param('/graph_name', self.args.graph_name)
-        # TODO: change to be loaded from rosparam
-        rospy.set_param('/home_positions', [[45, 10], [49, 11], [50, 10]])
         self.launch_mission = False
         self.stop_mission = False
         self.home_mission = False
@@ -96,7 +95,7 @@ class MissionCommander:
         robot_init = []
         listener = tf.TransformListener()
         listener.waitForTransform('map', list(agent_active_status.keys())[
-                                  0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
+                                  0] + '/base_link', rospy.Time(), rospy.Duration(5.0))
         for name in agent_active_status:
             now = rospy.Time.now()
             listener.waitForTransform(
