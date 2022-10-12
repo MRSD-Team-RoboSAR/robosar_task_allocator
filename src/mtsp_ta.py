@@ -165,9 +165,8 @@ class MtspCommander(TaskCommander):
         tflistener = tf.TransformListener()
         tflistener.waitForTransform('map', list(self.agent_active_status.keys())[
                                     0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
-        robot_init, init_order, robot_init_world = self.get_agent_position(
+        robot_init, init_order, _ = self.get_agent_position(
             tflistener, scale, origin)
-        rospy.set_param('/home_positions', robot_init_world)
         nodes = np.vstack((robot_init, nodes))
 
         # Create graph
