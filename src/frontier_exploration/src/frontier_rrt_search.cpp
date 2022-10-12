@@ -14,6 +14,7 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) :
     rviz_sub = nh_.subscribe("/clicked_point", 100, &FrontierRRTSearch::rvizCallBack, this);
     targets_pub = nh_.advertise<geometry_msgs::PointStamped>("/detected_points", 10);
     marker_pub = nh_.advertise<visualization_msgs::Marker>(ns + "_shapes", 10);
+    pub_timer = nh_.createTimer(ros::Duration(1 / 10.0), std::bind(&FrontierRRTSearch::publishPoints, this));
 }
 
 // Subscribers callback functions---------------------------------------
@@ -32,6 +33,10 @@ void FrontierRRTSearch::rvizCallBack(const geometry_msgs::PointStamped::ConstPtr
 
     points.points.push_back(p);
     marker_pub.publish(points);
+}
+
+void FrontierRRTSearch::publishPoints() {
+    if (started_) targets_pub.publish(exploration_goal);
 }
 
 // Nearest function
@@ -215,6 +220,7 @@ void FrontierRRTSearch::startSearch()
         ros::spinOnce();
         ros::Duration(0.1).sleep();
     }
+    started_ = true;
     ROS_INFO("Received start point.");
 
     geometry_msgs::Point trans;
@@ -270,7 +276,6 @@ void FrontierRRTSearch::startSearch()
             p.z = 0.0;
             points.points.push_back(p);
             marker_pub.publish(points);
-            targets_pub.publish(exploration_goal);
             points.points.clear();
         }
 

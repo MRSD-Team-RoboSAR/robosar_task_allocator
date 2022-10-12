@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
+import numpy as np
 from numpy import array
 from numpy import floor
 from numpy.linalg import norm
 from numpy import inf
 import sys
 import os
+from collections import deque as queue
 
 sys.path.append(os.path.dirname(__file__))
 
-# ________________________________________________________________________________
 
 def index_of_point(mapData, Xp):
     resolution = mapData.info.resolution
@@ -20,7 +21,14 @@ def index_of_point(mapData, Xp):
     index = int((floor((Xp[1]-Xstarty)/resolution) *
                  width)+(floor((Xp[0]-Xstartx)/resolution)))
     return index
-# ________________________________________________________________________________
+
+def index_2d_of_point(mapData, Xp):
+    resolution = mapData.info.resolution
+    Xstartx = mapData.info.origin.position.x
+    Xstarty = mapData.info.origin.position.y
+    width = mapData.info.width
+    Data = mapData.data
+    return [floor((Xp[1]-Xstarty)/resolution), floor((Xp[0]-Xstartx)/resolution)]
 
 def point_of_index(mapData, i):
     y = mapData.info.origin.position.y + \
@@ -28,24 +36,63 @@ def point_of_index(mapData, i):
     x = mapData.info.origin.position.x + \
         (i-(i/mapData.info.width)*(mapData.info.width))*mapData.info.resolution
     return array([x, y])
-# ________________________________________________________________________________
 
 
 def informationGain(mapData, point, r):
-    infoGain = 0
-    index = index_of_point(mapData, point)
     r_region = int(r/mapData.info.resolution)
-    init_index = index-r_region*(mapData.info.width+1)
-    for n in range(0, 2*r_region+1):
-        start = n*mapData.info.width+init_index
-        end = start+2*r_region
-        limit = ((start/mapData.info.width)+2)*mapData.info.width
-        for i in range(start, end+1):
-            if (i >= 0 and i < limit and i < len(mapData.data)):
-                if (mapData.data[i] == -1 and norm(array(point)-point_of_index(mapData, i)) <= r):
-                    infoGain += 1
-    return infoGain*(mapData.info.resolution**2)
-# ________________________________________________________________________________
+    map2 = np.reshape(mapData.data, (mapData.info.width, mapData.info.height))
+    x, y = index_2d_of_point(mapData, point)
+    x_min = max(int(x-r_region), 0)
+    x_max = min(int(x+r_region), mapData.info.width)
+    y_min = max(int(y-r_region), 0)
+    y_max = min(int(y+r_region), mapData.info.height)
+    infoGain = 0
+    for i in range(x_min, x_max):
+        for j in range(y_min, y_max):
+            if map2[i][j] == -1:
+                infoGain += 1   
+    if infoGain == 0:
+        return infoGain
+
+
+    # infoGain = 0
+    # index = index_of_point(mapData, point)  # flattened index of point
+    # r_region = int(r/mapData.info.resolution)  # region radius in cells
+    # init_index = index-r_region*(mapData.info.width+1)
+    # corners = [point[0]-r, point[0]+r, point[1]-r, point[1]+r] # in map coords
+
+    # q = queue()
+    # q.append(index)
+    # visited = set()
+
+    # while (len(q) > 0):
+    #     cell = q.popleft()
+
+    #     neighbors = [cell-1, cell+1, cell-mapData.info.width, cell-mapData.info.width-1,
+    #                 cell-mapData.info.width+1, cell+mapData.info.width, cell+mapData.info.width-1,
+    #                 cell+mapData.info.width+1]
+    #     for n in neighbors:
+    #         map_n = point_of_index(mapData, n)
+    #         if n not in visited and n >=0 and n < len(mapData.data) and map_n[0] >= corners[0] and map_n[0] <= corners[1] and map_n[1] >= corners[2] and map_n[1] <=corners[3]:
+    #             visited.add(n)
+    #             if mapData.data[n] != 1:
+    #                 q.append(n)
+    #             if mapData.data[n] == -1:
+    #                 infoGain += 1
+
+    # infoGain = 0
+    # index = index_of_point(mapData, point)
+    # r_region = int(r/mapData.info.resolution)
+    # init_index = index-r_region*(mapData.info.width+1)
+    # for n in range(0, 2*r_region+1):
+    #     start = n*mapData.info.width+init_index
+    #     end = start+2*r_region
+    #     limit = ((start/mapData.info.width)+2)*mapData.info.width
+    #     for i in range(start, end+1):
+    #         if (i >= 0 and i < limit and i < len(mapData.data)):
+    #             if(mapData.data[i] == -1 and norm(array(point)-point_of_index(mapData, i)) <= r):
+    #                 infoGain += 1
+    return infoGain/((x_max-x_min)*(y_max-y_min))
 
 
 def discount(mapData, assigned_pt, centroids, infoGain, r):
@@ -64,18 +111,16 @@ def discount(mapData, assigned_pt, centroids, infoGain, r):
                         # this should be modified, subtract the area of a cell, not 1
                         infoGain[j] -= 1
     return infoGain
-# ________________________________________________________________________________
 
 
 def pathCost(path):
     if (len(path) > 0):
         i = len(path)/2
-        p1 = array([path[i-1].pose.position.x, path[i-1].pose.position.y])
+        p1 = array([path[i-1].pose.position.x, path[i-1].pose.position.y])(2*r_region)**2
         p2 = array([path[i].pose.position.x, path[i].pose.position.y])
         return norm(p1-p2)*(len(path)-1)
     else:
         return inf
-# ________________________________________________________________________________
 
 
 def unvalid(mapData, pt):
@@ -91,7 +136,6 @@ def unvalid(mapData, pt):
                 if (mapData.data[i] == 1):
                     return True
     return False
-# ________________________________________________________________________________
 
 
 def Nearest(V, x):
@@ -104,8 +148,6 @@ def Nearest(V, x):
             result = i
     return result
 
-# ________________________________________________________________________________
-
 
 def Nearest2(V, x):
     n = inf
@@ -116,7 +158,6 @@ def Nearest2(V, x):
         if (n1 < n):
             n = n1
     return i
-# ________________________________________________________________________________
 
 
 def gridValue(mapData, Xp):
