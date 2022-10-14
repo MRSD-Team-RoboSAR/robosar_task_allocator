@@ -50,8 +50,6 @@ def informationGain(mapData, point, r):
     y_max = min(y+r_region, mapData.info.height)
 
     area = map2[x_min:x_max, y_min:y_max]
-    unknown_mask = np.where(area == -1)
-    area[unknown_mask] = 1
     seed = (min(x,x_max-1)-x_min, min(y,y_max-1)-y_min)
     mask = flood(area, seed, tolerance=1)
 
