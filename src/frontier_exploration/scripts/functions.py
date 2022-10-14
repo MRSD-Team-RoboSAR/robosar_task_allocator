@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from turtle import speed
 import numpy as np
 from numpy import array
 from numpy import floor
@@ -8,6 +9,7 @@ from numpy import inf
 import sys
 import os
 from collections import deque as queue
+from skimage.segmentation import flood
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -28,7 +30,7 @@ def index_2d_of_point(mapData, Xp):
     Xstarty = mapData.info.origin.position.y
     width = mapData.info.width
     Data = mapData.data
-    return [floor((Xp[1]-Xstarty)/resolution), floor((Xp[0]-Xstartx)/resolution)]
+    return [int(floor((Xp[1]-Xstarty)/resolution)), int(floor((Xp[0]-Xstartx)/resolution))]
 
 def point_of_index(mapData, i):
     y = mapData.info.origin.position.y + \
@@ -39,20 +41,34 @@ def point_of_index(mapData, i):
 
 
 def informationGain(mapData, point, r):
-    r_region = int(r/mapData.info.resolution)
+    r_region = int(floor(r/mapData.info.resolution))
     map2 = np.reshape(mapData.data, (mapData.info.width, mapData.info.height))
     x, y = index_2d_of_point(mapData, point)
-    x_min = max(int(x-r_region), 0)
-    x_max = min(int(x+r_region), mapData.info.width)
-    y_min = max(int(y-r_region), 0)
-    y_max = min(int(y+r_region), mapData.info.height)
-    infoGain = 0
-    for i in range(x_min, x_max):
-        for j in range(y_min, y_max):
-            if map2[i][j] == -1:
-                infoGain += 1   
-    if infoGain == 0:
-        return infoGain
+    x_min = max(x-r_region, 0)
+    x_max = min(x+r_region, mapData.info.width)
+    y_min = max(y-r_region, 0)
+    y_max = min(y+r_region, mapData.info.height)
+
+    area = map2[x_min:x_max, y_min:y_max]
+    unknown_mask = np.where(area == -1)
+    area[unknown_mask] = 1
+    seed = (min(x,x_max-1)-x_min, min(y,y_max-1)-y_min)
+    mask = flood(area, seed, tolerance=1)
+
+    contains_free = np.array(mask==1) & np.array(area==0)
+    if np.any(contains_free):
+        info_mask = np.array(mask==1) & np.array(area==1)
+        infoGain = np.sum(info_mask)
+    else:
+        return 0
+
+    # infoGain = 0
+    # for i in range(x_min, x_max):
+    #     for j in range(y_min, y_max):
+    #         if map2[i][j] == -1:
+    #             infoGain += 1   
+    # if infoGain == 0:
+    #     return infoGain
 
 
     # infoGain = 0

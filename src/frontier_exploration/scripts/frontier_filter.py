@@ -16,6 +16,7 @@ from robosar_messages.msg import PointArray
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class FrontierFilter:
 
     def __init__(self) -> None:
@@ -26,7 +27,7 @@ class FrontierFilter:
         # fetching all parameters
         self.map_topic = rospy.get_param('~map_topic', '/map')
         self.occ_threshold = rospy.get_param('~costmap_clearing_threshold', 70)
-        self.info_threshold = rospy.get_param('~info_gain_threshold', 50)
+        self.info_threshold = rospy.get_param('~info_gain_threshold', 0.2)
         self.cluster_bandwidth = rospy.get_param('~cluster_bandwidth', 1.0)
         # this can be smaller than the laser scanner range, >> smaller >>less computation time>> too small is not good, info gain won't be accurate
         self.info_radius = rospy.get_param('~info_radius', 0.5)
@@ -49,10 +50,10 @@ class FrontierFilter:
         self.tfLisn = tf.TransformListener()
         self.tfLisn.waitForTransform(
             global_frame, '/'+self.robot_frame, rospy.Time(0), rospy.Duration(10.0))
-        rospy.Subscriber(self.goals_topic, PointStamped, callback=self.frontiersCallback)
-        self.frontier_pub = rospy.Publisher('frontiers', Marker, queue_size=10)
-        self.centroids_pub = rospy.Publisher(
-            'centroids', Marker, queue_size=10)
+        rospy.Subscriber(self.goals_topic, PointStamped,
+                         callback=self.frontiersCallback)
+        self.frontier_pub = rospy.Publisher(
+            'frontier_centroids', Marker, queue_size=10)
         self.filtered_pub = rospy.Publisher(
             'filtered_points', PointArray, queue_size=10)
 
@@ -132,18 +133,17 @@ class FrontierFilter:
             centroids = []
             front = []
             # ig = []
-            temp = np.array(copy(self.received_frontiers))
+            # temp = np.array(copy(self.received_frontiers))
             for f in self.received_frontiers:
-                info_gain = informationGain(self.mapData, [f[0], f[1]], self.info_radius)
-                if info_gain > 0.05:
-                    front.append(f)
+                front.append(f)
 
             self.received_frontiers = copy(front)
             # Filter out by information gain
-            # for f in self.filtered_frontiers:
-            #     info_gain = informationGain(self.mapData, [f[0], f[1]], self.info_radius)
-            #     if info_gain > self.info_threshold:
-            #         front.append(f)
+            for f in self.filtered_frontiers:
+                info_gain = informationGain(
+                    self.mapData, [f[0], f[1]], self.info_radius)
+                if info_gain > self.info_threshold:
+                    front.append(f)
 
             # Clustering frontier points
             if len(front) > 1:
@@ -186,22 +186,14 @@ class FrontierFilter:
                 arraypoints.points.append(copy(tempPoint))
             self.filtered_pub.publish(arraypoints)
             pp = []
-            for q in range(0, len(self.filtered_frontiers)):
-                p.x = self.filtered_frontiers[q][0]
-                p.y = self.filtered_frontiers[q][1]
-                pp.append(copy(p))
-            points.points = pp
-            self.frontier_pub.publish(points)
-            pp = []
             for q in range(0, len(centroids_filtered)):
                 p.x = centroids_filtered[q][0]
                 p.y = centroids_filtered[q][1]
                 pp.append(copy(p))
             points_clust.points = pp
-            self.centroids_pub.publish(points_clust)
+            self.frontier_pub.publish(points_clust)
 
             self.received_frontiers = []
-            self.filtered_frontiers = []
             self.rate.sleep()
 
 
