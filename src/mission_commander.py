@@ -11,7 +11,7 @@ from robosar_messages.msg import *
 class MissionCommander:
 
     def __init__(self, args):
-        rospy.set_param('use_sim_time', True)
+        rospy.set_param('use_sim_time', args.sim)
         rospy.init_node('mission_commander', log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
         rospy.Subscriber('/system_mission_command',
@@ -148,9 +148,11 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--task_allocator",
                         help="Task allocator type", type=str, default="mtsp")
     parser.add_argument("-m", "--make_graph",
-                        help="Make graph", type=bool, default=False)
+                        help="Make graph", type=bool, default=True)
     parser.add_argument("-g", "--graph_name",
                         help="Graph name", type=str, default="temp")
+    parser.add_argument("-s", "--sim",
+                        help="Graph name", type=bool, default=False)
     args = parser.parse_args()
 
     try:
