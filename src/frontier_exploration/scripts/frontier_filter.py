@@ -33,7 +33,7 @@ class FrontierFilter:
         self.info_radius = rospy.get_param('~info_radius', 0.5)
         self.goals_topic = rospy.get_param('~goals_topic', '/detected_points')
         self.namespace = rospy.get_param('~namespace', '')
-        rateHz = rospy.get_param('~rate', 1)
+        rateHz = rospy.get_param('~rate', 2)
         self.robot_frame = rospy.get_param('~robot_frame', 'agent1/base_link')
 
         self.rate = rospy.Rate(rateHz)
@@ -132,8 +132,6 @@ class FrontierFilter:
         while not rospy.is_shutdown():
             centroids = []
             front = []
-            # ig = []
-            # temp = np.array(copy(self.received_frontiers))
             for f in self.received_frontiers:
                 front.append(f)
 
@@ -152,20 +150,6 @@ class FrontierFilter:
                 centroids = ms.cluster_centers_  # centroids array is the centers of each cluster
             if len(front) == 1:
                 centroids = front
-
-            # if len(front) > 1:
-            #     plt.figure()
-            #     front_arr = np.array(front)
-            #     cen_arr = np.array(centroids)
-            #     ff_arr = np.array(self.filtered_frontiers)
-            #     plt.scatter(temp[:,0], temp[:,1], color='yellow')
-            #     plt.scatter(front_arr[:,0], front_arr[:,1], color='red')
-            #     plt.scatter(cen_arr[:,0], cen_arr[:,1], color='green')
-            #     for k in range(len(temp)):
-            #         plt.annotate(str(ig[k]), (temp[k,0], temp[k,1]))
-            # plt.show()
-
-            # breakpoint()
 
             self.filtered_frontiers = copy(centroids)
 
