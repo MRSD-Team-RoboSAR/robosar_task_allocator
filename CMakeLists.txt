@@ -11,10 +11,11 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  tf2
+  tf2_ros
   nav_msgs
   geometry_msgs
   visualization_msgs
-  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,7 +110,7 @@ catkin_python_setup()
 catkin_package(
  INCLUDE_DIRS src/frontier_exploration/include
 #  LIBRARIES stuff
- CATKIN_DEPENDS roscpp rospy std_msgs
+ CATKIN_DEPENDS roscpp rospy std_msgs tf2 tf2_ros nav_msgs geometry_msgs visualization_msgs
 #  DEPENDS system_lib
 )
 
@@ -129,6 +130,7 @@ add_library(${PROJECT_NAME} src/frontier_exploration/src/functions.cpp
                             src/frontier_exploration/src/mtrand.cpp
                             src/frontier_exploration/src/frontier_rrt_search.cpp
 )
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

@@ -59,53 +59,6 @@ def informationGain(mapData, point, r):
         infoGain = np.sum(info_mask)
     else:
         return 0
-
-    # infoGain = 0
-    # for i in range(x_min, x_max):
-    #     for j in range(y_min, y_max):
-    #         if map2[i][j] == -1:
-    #             infoGain += 1   
-    # if infoGain == 0:
-    #     return infoGain
-
-
-    # infoGain = 0
-    # index = index_of_point(mapData, point)  # flattened index of point
-    # r_region = int(r/mapData.info.resolution)  # region radius in cells
-    # init_index = index-r_region*(mapData.info.width+1)
-    # corners = [point[0]-r, point[0]+r, point[1]-r, point[1]+r] # in map coords
-
-    # q = queue()
-    # q.append(index)
-    # visited = set()
-
-    # while (len(q) > 0):
-    #     cell = q.popleft()
-
-    #     neighbors = [cell-1, cell+1, cell-mapData.info.width, cell-mapData.info.width-1,
-    #                 cell-mapData.info.width+1, cell+mapData.info.width, cell+mapData.info.width-1,
-    #                 cell+mapData.info.width+1]
-    #     for n in neighbors:
-    #         map_n = point_of_index(mapData, n)
-    #         if n not in visited and n >=0 and n < len(mapData.data) and map_n[0] >= corners[0] and map_n[0] <= corners[1] and map_n[1] >= corners[2] and map_n[1] <=corners[3]:
-    #             visited.add(n)
-    #             if mapData.data[n] != 1:
-    #                 q.append(n)
-    #             if mapData.data[n] == -1:
-    #                 infoGain += 1
-
-    # infoGain = 0
-    # index = index_of_point(mapData, point)
-    # r_region = int(r/mapData.info.resolution)
-    # init_index = index-r_region*(mapData.info.width+1)
-    # for n in range(0, 2*r_region+1):
-    #     start = n*mapData.info.width+init_index
-    #     end = start+2*r_region
-    #     limit = ((start/mapData.info.width)+2)*mapData.info.width
-    #     for i in range(start, end+1):
-    #         if (i >= 0 and i < limit and i < len(mapData.data)):
-    #             if(mapData.data[i] == -1 and norm(array(point)-point_of_index(mapData, i)) <= r):
-    #                 infoGain += 1
     return infoGain/((x_max-x_min)*(y_max-y_min))
 
 

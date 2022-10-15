@@ -17,7 +17,6 @@
 #include "nav_msgs/MapMetaData.h"
 #include "geometry_msgs/Point.h"
 #include "visualization_msgs/Marker.h"
-#include <tf/transform_listener.h>
 
 class FrontierRRTSearch {
 
@@ -28,8 +27,9 @@ public:
 
 protected:
     void mapCallBack(const nav_msgs::OccupancyGrid::ConstPtr &msg);
-    void rvizCallBack(const geometry_msgs::PointStamped::ConstPtr &msg);
+    void getRobotLeaderPosition();
     void publishPoints();
+    void initMarkers();
     std::vector<float> Nearest(std::vector<std::vector<float>> V, std::vector<float> x_rand);
 
     // Steer function prototype
@@ -44,12 +44,12 @@ protected:
 private:
     ros::NodeHandle& nh_;
     ros::Subscriber map_sub;
-    ros::Subscriber rviz_sub;
     ros::Publisher targets_pub;
     ros::Publisher marker_pub;
     ros::Timer pub_timer;
 
     std::string ns;
+    std::string robot_leader;
     bool started_ = false;
     nav_msgs::OccupancyGrid mapData;
     geometry_msgs::PointStamped clickedpoint;
