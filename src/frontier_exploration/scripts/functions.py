@@ -73,6 +73,7 @@ def informationGain(mapData, point, r):
     else:
 
         return 0
+
     return infoGain / ((x_max - x_min) * (y_max - y_min))
 
 
