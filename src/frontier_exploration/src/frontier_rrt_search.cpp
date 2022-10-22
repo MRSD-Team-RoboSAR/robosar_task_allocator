@@ -35,7 +35,7 @@ void FrontierRRTSearch::getRobotLeaderPosition()
     try
     {
         ros::Time now = ros::Time(0);
-        ROS_INFO("%s",robot_leader.c_str());
+        ROS_INFO("%s", robot_leader.c_str());
         tf = tf_buffer_.lookupTransform("map", robot_leader + "/base_link", now);
 
         geometry_msgs::Point p;
@@ -48,7 +48,7 @@ void FrontierRRTSearch::getRobotLeaderPosition()
     }
     catch (tf2::TransformException &ex)
     {
-        ROS_ERROR("%s",ex.what());
+        ROS_ERROR("%s", ex.what());
     }
 }
 
@@ -213,7 +213,6 @@ void FrontierRRTSearch::initMarkers()
     line.lifetime = ros::Duration();
 
     getRobotLeaderPosition();
-    started_ = true;
     ROS_INFO("Received start point.");
 }
 
@@ -307,6 +306,9 @@ void FrontierRRTSearch::startSearch()
         }
 
         marker_pub.publish(line);
+
+        if (!started_)
+            started_ = true;
 
         ros::spinOnce();
         rate.sleep();
