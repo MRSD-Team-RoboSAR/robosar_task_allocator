@@ -55,9 +55,6 @@ class FrontierFilter:
             self.goals_topic, PointStamped, callback=self.frontiersCallback
         )
         self.frontier_pub = rospy.Publisher("frontier_centroids", Marker, queue_size=10)
-        self.filtered_pub = rospy.Publisher(
-            "filtered_points", PointArray, queue_size=10
-        )
 
         rospy.loginfo("the map and global costmaps are received")
 
@@ -171,12 +168,6 @@ class FrontierFilter:
             self.filtered_frontiers = copy(centroids_filtered)
 
             # publishing
-            arraypoints.points = []
-            for i in centroids_filtered:
-                tempPoint.x = i[0]
-                tempPoint.y = i[1]
-                arraypoints.points.append(copy(tempPoint))
-            self.filtered_pub.publish(arraypoints)
             pp = []
             for q in range(0, len(centroids_filtered)):
                 p.x = centroids_filtered[q][0]
