@@ -11,7 +11,7 @@ from robosar_messages.msg import *
 class MissionCommander:
 
     def __init__(self, args):
-        # rospy.set_param('use_sim_time', True)
+        rospy.set_param('use_sim_time', args.sim)
         rospy.init_node('mission_commander', log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
         rospy.Subscriber('/system_mission_command',
@@ -25,6 +25,9 @@ class MissionCommander:
         self._tc_node = None
         self._launch = roslaunch.scriptapi.ROSLaunch()
         self._tc_process = None
+        # Get homing positions
+        homing_pos, _ = self.get_agent_position()
+        rospy.set_param('/home_positions', homing_pos)
 
     def mission_main(self):
         rate = rospy.Rate(10)
@@ -67,15 +70,12 @@ class MissionCommander:
         self._launch.start()
         self._tc_process = self._launch.launch(self._tc_node)
 
-    def homing(self):
-        self.stop()
-
-        starts = []
-        goals = []
-        names = []
-        agent_active_status = {}
-
+    def get_agent_position(self):
+        """
+        Get robot positions
+        """
         # Get active agents
+        agent_active_status = {}
         print("calling agent status service")
         rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
         try:
@@ -91,8 +91,8 @@ class MissionCommander:
             print("Agent status service call failed: %s" % e)
             raise Exception("Agent status service call failed")
 
-        # get robot positions
-        robot_init = []
+        # Get positions
+        robot_init_world = []
         listener = tf.TransformListener()
         listener.waitForTransform('map', list(agent_active_status.keys())[
                                   0] + '/base_link', rospy.Time(), rospy.Duration(5.0))
@@ -102,13 +102,24 @@ class MissionCommander:
                 'map', name + '/base_link', now, rospy.Duration(1.0))
             (trans, rot) = listener.lookupTransform(
                 'map', name + '/base_link', now)
-            robot_init.append([trans[0], trans[1]])
+            robot_init_world.append([trans[0], trans[1]])
+        return robot_init_world, agent_active_status
+
+    def homing(self):
+        self.stop()
+
+        starts = []
+        goals = []
+        names = []
+
+        # get start positions
+        robot_init, agent_active_status = self.get_agent_position()
 
         # fill in message
-        goals = rospy.get_param('/home_positions')
         for i, name in enumerate(agent_active_status.keys()):
             names.append(name)
             starts.append(robot_init[i])
+        goals = rospy.get_param('/home_positions')[:len(names)]
 
         # publish
         task_pub = rospy.Publisher(
@@ -140,6 +151,8 @@ if __name__ == '__main__':
                         help="Make graph", type=bool, default=True)
     parser.add_argument("-g", "--graph_name",
                         help="Graph name", type=str, default="temp")
+    parser.add_argument("-s", "--sim",
+                        help="Graph name", type=bool, default=False)
     args = parser.parse_args()
 
     try:
