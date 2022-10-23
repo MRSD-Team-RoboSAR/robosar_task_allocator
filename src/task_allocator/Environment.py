@@ -5,12 +5,12 @@ Environment class
 
 import numpy as np
 import heapq
+
 # from Robot import Robot
 from task_allocator.Robot import Robot
 
 
 class Environment:
-
     def __init__(self, nodes=[], adj=[], robots={}):
         """
         nodes: nx2 np.array of task coordinates
@@ -27,8 +27,12 @@ class Environment:
                 elif self.adj[i][j] < 0:
                     d = self.dijkstra(i, j)
                     if d < 0:
-                        print("WARNING: could not find path from {} to {}".format(nodes[i], nodes[j]))
-                        d = 3*np.linalg.norm(nodes[i]-nodes[j])
+                        print(
+                            "WARNING: could not find path from {} to {}".format(
+                                nodes[i], nodes[j]
+                            )
+                        )
+                        d = 3 * np.linalg.norm(nodes[i] - nodes[j])
                     self.adj[i][j] = d
                     self.adj[j][i] = self.adj[i][j]
 
@@ -57,7 +61,7 @@ class Environment:
         robot = Robot(name, self.nodes[start], start)
         self.robots[name] = robot
         self.num_robots = len(self.robots)
-        self.id_dict[name] = self.num_robots-1
+        self.id_dict[name] = self.num_robots - 1
         self.visited.add(robot.prev)
 
     def remove_robot(self, agent):
@@ -89,12 +93,13 @@ class Environment:
         goal: int
         """
         m = self.adj.shape[0]
-        dist = [float('inf') for _ in range(m)]
+        dist = [float("inf") for _ in range(m)]
         dist[start] = 0
         minHeap = [(0, start)]  # distance, node
         while minHeap:
             d, s = heapq.heappop(minHeap)
-            if d > dist[s]: continue
+            if d > dist[s]:
+                continue
             if s == goal:
                 return d  # Reach to goal
             neighbors = []
@@ -109,5 +114,38 @@ class Environment:
         return -1
 
 
+class UnknownEnvironment(Environment):
+    def __init__(self, nodes=[], robots={}, scale=0.0, origin=0.0) -> None:
+        """
+        Takes in frontier nodes and list of robots
+        """
+        super().__init__(nodes=nodes, robots=robots)
+        self.scale = scale
+        self.origin = origin
 
+    def add_robot(self, name, start):
+        """
+        id: int
+        start: start (x,y) position
+        """
+        robot = Robot(name, start)
+        self.robots[name] = robot
+        self.num_robots = len(self.robots)
+        self.id_dict[name] = self.num_robots - 1
 
+    def calculate_cost(self):
+        # calculate costs to each frontier for each robot
+        self.adj = np.zeros((self.num_robots, len(self.nodes)))
+        for name, r in self.robots.items():
+            for i, node in enumerate(self.nodes):
+                dist = self.euclidean(r.pos, node)
+                self.adj[self.get_robot_id(name), i] = dist
+
+    def euclidean(self, x1, x2):
+        return np.linalg.norm(x1 - x2)
+
+    def update(self, nodes, robots_pos):
+        self.nodes = nodes
+        for name, pos in robots_pos.items():
+            self.robots[name].pos = pos
+        self.calculate_cost()

@@ -9,6 +9,7 @@ import tf
 from geometry_msgs.msg import Point, PointStamped
 from nav_msgs.msg import OccupancyGrid
 from numpy import array, vstack
+from robosar_messages.msg import PointArray
 from sklearn.cluster import MeanShift
 from visualization_msgs.msg import Marker
 
@@ -54,8 +55,11 @@ class FrontierFilter:
         rospy.Subscriber(
             self.goals_topic, PointStamped, callback=self.frontiersCallback
         )
-        self.frontier_pub = rospy.Publisher(
-            ns + "/frontier_centroids", Marker, queue_size=10
+        self.frontier_marker_pub = rospy.Publisher(
+            ns + "frontier_centroids", Marker, queue_size=10
+        )
+        self.frontier_array_pub = rospy.Publisher(
+            ns + "filtered_frontiers", PointArray, queue_size=10
         )
 
         rospy.loginfo("the map and global costmaps are received")
@@ -103,8 +107,7 @@ class FrontierFilter:
         centroid_point.header.stamp = rospy.Time(0)
         centroid_point.point.z = 0.0
 
-        p = Point()
-        p.z = 0
+        arraypoints = PointArray()
 
         rospy.loginfo("Starting filter")
         while not rospy.is_shutdown():
@@ -150,13 +153,23 @@ class FrontierFilter:
                 self.filtered_frontiers = copy(centroids_filtered)
 
                 # publishing
+                arraypoints.points = []
+                for i in centroids_filtered:
+                    published_point = Point()
+                    published_point.z = 0.0
+                    published_point.x = i[0]
+                    published_point.y = i[1]
+                    arraypoints.points.append(published_point)
+                self.frontier_array_pub.publish(arraypoints)
                 pp = []
                 for q in range(0, len(centroids_filtered)):
+                    p = Point()
+                    p.z = 0
                     p.x = centroids_filtered[q][0]
                     p.y = centroids_filtered[q][1]
-                    pp.append(copy(p))
+                    pp.append(p)
                 centroid_markers.points = pp
-                self.frontier_pub.publish(centroid_markers)
+                self.frontier_marker_pub.publish(centroid_markers)
 
                 self.received_frontiers = []
             self.rate.sleep()

@@ -2,13 +2,18 @@
 Task Allocation classes
 - TA_greedy: greedy task allocator
 - TA_mTSP: Multiple Traveling Salesman Problem task allocator
+- TA_frontier_greedy: greedy task allocator with dynamic frontiers
 """
 
 from abc import ABC, abstractmethod
-import task_allocator.mTSP_utils as mTSP_utils
+
+import matplotlib.pyplot as plt
+
 # import mTSP_utils
 import numpy as np
-import matplotlib.pyplot as plt
+
+import task_allocator.mTSP_utils as mTSP_utils
+import task_allocator.utils as utils
 
 
 class TA(ABC):
@@ -17,15 +22,16 @@ class TA(ABC):
     """
 
     def init(self, env):
-        """ initializes task allocation object
+        """
+        initializes task allocation object
         env: Environment object
         """
         self.env = env
         self.objective_value = [0] * len(self.env.robots)
 
-
     def reached(self, name, curr_node):
-        """ called after robot completes task
+        """
+        called after robot completes task
         name: string
         curr_node: int
         """
@@ -43,11 +49,13 @@ class TA(ABC):
 
     @abstractmethod
     def assign(self, name, curr_node):
-        """ called by reached() to assign robot its next task
-       name: string
-       curr_node: int
-       """
+        """
+        called by reached() to assign robot its next task
+        name: string
+        curr_node: int
+        """
         pass
+
 
 class TA_greedy(TA):
     """
@@ -66,21 +74,34 @@ class TA_greedy(TA):
                 break
         # No feasible path to any task
         if min_node == -1:
-            print('USING EUCLIDEAN DISTANCE')
+            print("USING EUCLIDEAN DISTANCE")
             E = []
             idx = []
             for i, node in enumerate(self.env.nodes):
                 if i not in self.env.visited and i not in self.env.frontier:
                     idx.append(i)
-                    E.append(np.sqrt((node[0] - robot.pos[0]) ** 2 + (node[1] - robot.pos[1]) ** 2))
+                    E.append(
+                        np.sqrt(
+                            (node[0] - robot.pos[0]) ** 2
+                            + (node[1] - robot.pos[1]) ** 2
+                        )
+                    )
             if E:
                 min_node_i = np.argmin(np.array(E))
                 min_node = idx[min_node_i]
 
-        print("Assigned {}: node {} at {}".format(name, min_node, self.env.nodes[min_node]))
-        plt.plot(self.env.nodes[min_node][0], self.env.nodes[min_node][1], 'go', zorder=101)
+        print(
+            "Assigned {}: node {} at {}".format(
+                name, min_node, self.env.nodes[min_node]
+            )
+        )
+        plt.plot(
+            self.env.nodes[min_node][0], self.env.nodes[min_node][1], "go", zorder=101
+        )
         robot.next = min_node
-        self.objective_value[self.env.get_robot_id(name)] += self.env.adj[robot.prev][robot.next]
+        self.objective_value[self.env.get_robot_id(name)] += self.env.adj[robot.prev][
+            robot.next
+        ]
         self.env.frontier.add(min_node)
 
 
@@ -99,37 +120,49 @@ class TA_mTSP(TA):
         r = self.env.robots[name]
         # print("{}: {}".format(id, self.tours[self.env.id_dict[id]]))
         self.tours[self.env.get_robot_id(name)].pop(0)
-        if not self.tours[self.env.get_robot_id(name)]: # if robot has finished
-            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
+        if not self.tours[self.env.get_robot_id(name)]:  # if robot has finished
+            plt.plot(
+                self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], "go", zorder=200
+            )
             r.done = True
-        if r.next is None: # first assignment
-            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
+        if r.next is None:  # first assignment
+            plt.plot(
+                self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], "go", zorder=200
+            )
             self.assign(name, curr_node)
-        elif r.prev is not curr_node: # if robot not done
+        elif r.prev is not curr_node:  # if robot not done
             r.prev = curr_node
             r.visited.append(curr_node)
-            plt.plot(self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], 'go', zorder=200)
+            plt.plot(
+                self.env.nodes[r.prev][0], self.env.nodes[r.prev][1], "go", zorder=200
+            )
             self.env.frontier.remove(curr_node)
             self.env.visited.add(curr_node)
             print("Robot {} reached node {}".format(name, curr_node))
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
                 self.assign(name, curr_node)
-        elif self.tours[self.env.get_robot_id(name)]: # if robot was done, but is now reassigned
+        elif self.tours[
+            self.env.get_robot_id(name)
+        ]:  # if robot was done, but is now reassigned
             r.done = False
             if len(self.env.visited) + len(self.env.frontier) < self.env.num_nodes:
                 self.assign(name, curr_node)
         # plt.pause(0.1)
 
-
     def assign(self, name, curr_node):
         robot = self.env.robots[name]
         if self.tours[self.env.id_dict[name]]:
             min_node = self.tours[self.env.id_dict[name]][0]
-            print("Assigned {}: node {} at {}".format(name, min_node, self.env.nodes[min_node]))
+            print(
+                "Assigned {}: node {} at {}".format(
+                    name, min_node, self.env.nodes[min_node]
+                )
+            )
             robot.next = min_node
-            self.objective_value[self.env.get_robot_id(name)] += self.env.adj[robot.prev][robot.next]
+            self.objective_value[self.env.get_robot_id(name)] += self.env.adj[
+                robot.prev
+            ][robot.next]
             self.env.frontier.add(min_node)
-
 
     def get_next_adj(self):
         """
@@ -149,27 +182,26 @@ class TA_mTSP(TA):
         adj = self.tsp2hamiltonian(adj, start_idx)
         return adj, to_visit
 
-
-    def calculate_mtsp(self, initial = True):
+    def calculate_mtsp(self, initial=True):
         """
         Uses Google OR-Tools VRP Library to solve for optimal tours
         initial: Bool
         """
         data = {}
         starts = [r.prev for r in self.env.robots.values()]
-        if initial: # first solution
+        if initial:  # first solution
             adj = self.tsp2hamiltonian(self.env.adj, starts)
-            data['starts'] = starts
-            data['ends'] = [self.env.num_nodes+i for i in range(self.env.num_robots)]
+            data["starts"] = starts
+            data["ends"] = [self.env.num_nodes + i for i in range(self.env.num_robots)]
         else:
             adj, to_visit = self.get_next_adj()
             # prev = {r.id: r.prev for r in self.env.robots.values()}
-            data['starts'] = [to_visit.index(r.next) for r in self.env.robots.values()]
-            data['ends'] = [len(to_visit)+i for i in range(self.env.num_robots)]
-        data['num_vehicles'] = len(self.env.robots)
-        data['distance_matrix'] = adj
+            data["starts"] = [to_visit.index(r.next) for r in self.env.robots.values()]
+            data["ends"] = [len(to_visit) + i for i in range(self.env.num_robots)]
+        data["num_vehicles"] = len(self.env.robots)
+        data["distance_matrix"] = adj
         tours = mTSP_utils.solve(data, self.timeout)
-        
+
         if not initial:
             self.tours = [[to_visit[i] for i in tour] for tour in tours]
             for name, robot in self.env.robots.items():
@@ -180,19 +212,52 @@ class TA_mTSP(TA):
 
         return tours
 
-
     def tsp2hamiltonian(self, adj, starts):
         """
         Converts TSP problem formulation to Hamiltonian Path
         adj: nxn np.array
         starts: n list
         """
-        adj_new = np.zeros((len(adj)+self.env.num_robots, len(adj)+self.env.num_robots))
-        adj_new[:len(adj), :len(adj)] = adj
+        adj_new = np.zeros(
+            (len(adj) + self.env.num_robots, len(adj) + self.env.num_robots)
+        )
+        adj_new[: len(adj), : len(adj)] = adj
         for i in range(self.env.num_robots):
-            for j in range(i+1, self.env.num_robots):
-                adj_new[len(adj) + i, len(adj)+j] = 10e4
-                adj_new[len(adj)+j, len(adj) + i] = 10e4
+            for j in range(i + 1, self.env.num_robots):
+                adj_new[len(adj) + i, len(adj) + j] = 10e4
+                adj_new[len(adj) + j, len(adj) + i] = 10e4
         return adj_new
 
-            
+
+class TA_frontier_greedy(TA):
+    """
+    - assign is called at a certain freq
+    - env gives rxn cost matrix
+    - round robin greedy assignment
+    """
+
+    def __init__(self, env) -> None:
+        super().init(env)
+
+    def assign(self):
+        self.env.frontier.clear()
+        for name in self.env.robots.keys():
+            C = self.env.adj[self.env.get_robot_id(name), :]
+            robot = self.env.robots[name]
+            min_node_list = np.argsort(C)
+            min_node = -1
+            for i in min_node_list:
+                if C[i] > 0 and i not in self.env.frontier:
+                    min_node = i
+                    break
+            if min_node == -1:
+                print("{} unused".format(name))
+                continue
+
+            print(
+                "Assigned {}: node {} at {}".format(
+                    name, min_node, self.env.nodes[min_node]
+                )
+            )
+            robot.next = min_node
+            self.env.frontier.add(min_node)

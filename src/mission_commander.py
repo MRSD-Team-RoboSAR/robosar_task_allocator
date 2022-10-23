@@ -9,16 +9,16 @@ from robosar_messages.msg import *
 
 
 class MissionCommander:
-
     def __init__(self, args):
-        rospy.set_param('use_sim_time', args.sim)
-        rospy.init_node('mission_commander', log_level=rospy.DEBUG)
+        rospy.set_param("use_sim_time", args.sim)
+        rospy.init_node("mission_commander", log_level=rospy.DEBUG)
         rospy.logdebug("Initializing Mission Commander ...")
-        rospy.Subscriber('/system_mission_command',
-                         mission_command, self.handle_commands)
+        rospy.Subscriber(
+            "/system_mission_command", mission_command, self.handle_commands
+        )
         self.args = args
-        rospy.set_param('/make_graph', self.args.make_graph)
-        rospy.set_param('/graph_name', self.args.graph_name)
+        rospy.set_param("/make_graph", self.args.make_graph)
+        rospy.set_param("/graph_name", self.args.graph_name)
         self.launch_mission = False
         self.stop_mission = False
         self.home_mission = False
@@ -27,7 +27,7 @@ class MissionCommander:
         self._tc_process = None
         # Get homing positions
         homing_pos, _ = self.get_agent_position()
-        rospy.set_param('/home_positions', homing_pos)
+        rospy.set_param("/home_positions", homing_pos)
 
     def mission_main(self):
         rate = rospy.Rate(10)
@@ -59,12 +59,24 @@ class MissionCommander:
 
     def execute(self):
         rospy.logdebug("Executing")
-        if self.args.task_allocator == "mtsp":
+        if self.args.task_allocator == "frontier":
             self._tc_node = roslaunch.core.Node(
-                "robosar_task_allocator", "mtsp_ta.py", name="task_commander", output="screen")
+                "robosar_task_allocator",
+                "frontier_ta.py",
+                name="task_commander",
+                output="screen",
+            )
+        elif self.args.task_allocator == "mtsp":
+            self._tc_node = roslaunch.core.Node(
+                "robosar_task_allocator",
+                "mtsp_ta.py",
+                name="task_commander",
+                output="screen",
+            )
         elif self.args.task_allocator == "greedy":
             self._tc_node = roslaunch.core.Node(
-                "robosar_task_allocator", "greedy_ta.py")
+                "robosar_task_allocator", "greedy_ta.py"
+            )
         else:
             raise Exception("Invalid TA type")
         self._launch.start()
@@ -77,10 +89,11 @@ class MissionCommander:
         # Get active agents
         agent_active_status = {}
         print("calling agent status service")
-        rospy.wait_for_service('/robosar_agent_bringup_node/agent_status')
+        rospy.wait_for_service("/robosar_agent_bringup_node/agent_status")
         try:
             get_status = rospy.ServiceProxy(
-                '/robosar_agent_bringup_node/agent_status', agent_status)
+                "/robosar_agent_bringup_node/agent_status", agent_status
+            )
             resp1 = get_status()
             active_agents = resp1.agents_active
             for a in active_agents:
@@ -94,14 +107,18 @@ class MissionCommander:
         # Get positions
         robot_init_world = []
         listener = tf.TransformListener()
-        listener.waitForTransform('map', list(agent_active_status.keys())[
-                                  0] + '/base_link', rospy.Time(), rospy.Duration(5.0))
+        listener.waitForTransform(
+            "map",
+            list(agent_active_status.keys())[0] + "/base_link",
+            rospy.Time(),
+            rospy.Duration(5.0),
+        )
         for name in agent_active_status:
             now = rospy.Time.now()
             listener.waitForTransform(
-                'map', name + '/base_link', now, rospy.Duration(1.0))
-            (trans, rot) = listener.lookupTransform(
-                'map', name + '/base_link', now)
+                "map", name + "/base_link", now, rospy.Duration(1.0)
+            )
+            (trans, rot) = listener.lookupTransform("map", name + "/base_link", now)
             robot_init_world.append([trans[0], trans[1]])
         return robot_init_world, agent_active_status
 
@@ -119,11 +136,10 @@ class MissionCommander:
         for i, name in enumerate(agent_active_status.keys()):
             names.append(name)
             starts.append(robot_init[i])
-        goals = rospy.get_param('/home_positions')[:len(names)]
+        goals = rospy.get_param("/home_positions")[: len(names)]
 
         # publish
-        task_pub = rospy.Publisher(
-            'task_allocation', task_allocation, queue_size=10)
+        task_pub = rospy.Publisher("task_allocation", task_allocation, queue_size=10)
         task_msg = task_allocation()
         task_msg.id = names
         task_msg.startx = [s[0] for s in starts]
@@ -143,16 +159,22 @@ class MissionCommander:
         rospy.logwarn("Stopping task allocation.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--task_allocator",
-                        help="Task allocator type", type=str, default="mtsp")
-    parser.add_argument("-m", "--make_graph",
-                        help="Make graph", type=bool, default=True)
-    parser.add_argument("-g", "--graph_name",
-                        help="Graph name", type=str, default="temp")
-    parser.add_argument("-s", "--sim",
-                        help="Graph name", type=bool, default=False)
+    parser.add_argument(
+        "-t",
+        "--task_allocator",
+        help="greedy, mtsp or frontier",
+        type=str,
+        default="mtsp",
+    )
+    parser.add_argument(
+        "-m", "--make_graph", help="Make graph", type=bool, default=True
+    )
+    parser.add_argument(
+        "-g", "--graph_name", help="Graph name", type=str, default="temp"
+    )
+    parser.add_argument("-s", "--sim", help="Use sim time", type=bool, default=False)
     args = parser.parse_args()
 
     try:

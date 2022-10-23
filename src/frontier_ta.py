@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+
+import numpy as np
+import rospy
+import tf
+from robosar_messages.msg import *
+from robosar_messages.srv import *
+from sensor_msgs.msg import Image
+
+import task_allocator.utils as utils
+from task_allocator.Environment import UnknownEnvironment
+from task_allocator.TA import *
+from task_commander import TaskCommander
+from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
+
+
+class FrontierAssignmentCommander(TaskCommander):
+    def __init__(self):
+        super().__init__()
+        rateHz = rospy.get_param("~rate", 1.0 / 5)
+        self.rate = rospy.Rate(rateHz)
+        self.frontiers = []
+        self.map_data = None
+        rospy.Subscriber("/filtered_frontiers", PointArray, self.frontier_callback)
+
+    def frontier_callback(self, msg):
+        points = []
+        for point in msg.points:
+            points.append([point.x, point.y])
+        self.frontiers = np.array(points)
+
+    def get_agent_position(self, listener, scale, origin):
+        """
+        Get robot positions
+        """
+        robot_pos = {}
+        for name in self.agent_active_status:
+            now = rospy.Time.now()
+            listener.waitForTransform(
+                "map", name + "/base_link", now, rospy.Duration(1.0)
+            )
+            (trans, rot) = listener.lookupTransform("map", name + "/base_link", now)
+            robot_pos[name] = [trans[0], trans[1]]
+        return robot_pos
+
+    def arr_m_to_pixels(self, arr, scale, origin):
+        output = []
+        for i in arr:
+            output.append(utils.m_to_pixels([i[0], i[1]], scale, origin))
+        return np.array(output)
+
+    def execute(self):
+        """
+        Uses frontiers as tasks
+        """
+        # Get active agents
+        self.get_active_agents()
+
+        # Get map
+        map_msg, self.map_data, scale, origin = self.get_map_info()
+
+        # Get frontiers
+        rospy.loginfo("Waiting for frontiers")
+        while len(self.frontiers) < 1:
+            rospy.sleep(0.1)
+            pass
+
+        # get robot positions
+        tflistener = tf.TransformListener()
+        tflistener.waitForTransform(
+            "map",
+            list(self.agent_active_status.keys())[0] + "/base_link",
+            rospy.Time(),
+            rospy.Duration(1.0),
+        )
+        robot_pos = self.get_agent_position(tflistener, scale, origin)
+
+        # Create env
+        env = UnknownEnvironment(nodes=self.frontiers, scale=scale, origin=origin)
+        for name in self.agent_active_status:
+            env.add_robot(name, robot_pos[name])
+
+        # Create TA
+        solver = TA_frontier_greedy(env)
+
+        # plot
+        image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
+        utils.plot_pgm_data(self.map_data)
+        plt.plot(self.frontiers[:, 0], self.frontiers[:, 1], "go", zorder=100)
+        for pos in robot_pos.values():
+            plt.plot(pos[0], pos[1], "ko", zorder=100)
+        self.publish_image(image_pub)
+
+        # every time robot reaches a frontier, or every 5 seconds, reassign
+        # get robot positions, updates env
+        # cost: astar path, utility: based on paper below
+        # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=1435481&tag=1
+        # 1. greedy assignment
+        # 2. hungarian assignment
+        # 3. mtsp
+        rospy.loginfo("Starting task allocator")
+        while not rospy.is_shutdown():
+            robot_pos = self.get_agent_position(tflistener, scale, origin)
+            env.update(self.frontiers, robot_pos)
+            solver.assign()
+
+            # plot
+            plt.clf()
+            _, self.map_data, scale, origin = self.get_map_info()
+            utils.plot_pgm_data(self.map_data)
+            pix_frontier = self.arr_m_to_pixels(self.frontiers, scale, origin)
+            plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
+            for name, pos in robot_pos.items():
+                pix_rob = utils.m_to_pixels(pos, scale, origin)
+                plt.plot(pix_rob[0], pix_rob[1], "ko", zorder=100)
+                plt.plot(
+                    [pix_rob[0], pix_frontier[env.robots[name].next][0]],
+                    [pix_rob[1], pix_frontier[env.robots[name].next][1]],
+                    "k-",
+                    zorder=90,
+                )
+            self.publish_image(image_pub)
+
+            self.rate.sleep()
+
+
+if __name__ == "__main__":
+    rospy.init_node("task_commander", anonymous=False, log_level=rospy.INFO)
+
+    try:
+        tc = FrontierAssignmentCommander()
+        tc.execute()
+    except rospy.ROSInterruptException:
+        pass
+    plt.close("all")
