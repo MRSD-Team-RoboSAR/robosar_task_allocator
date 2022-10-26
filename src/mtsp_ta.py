@@ -84,6 +84,7 @@ class MtspCommander(TaskCommander):
         """
         robot_init = []
         init_order = []
+        robot_init_world = []
         for name in self.agent_active_status:
             now = rospy.Time.now()
             listener.waitForTransform(
@@ -93,8 +94,9 @@ class MtspCommander(TaskCommander):
             robot_init.append(utils.m_to_pixels(
                 [trans[0], trans[1]], scale, origin))
             init_order.append(name)
+            robot_init_world.append([trans[0], trans[1]])
         robot_init = np.reshape(robot_init, (-1, 2))
-        return robot_init, init_order
+        return robot_init, init_order, robot_init_world
 
     def publish_image(self, image_pub):
         canvas = plt.gca().figure.canvas
@@ -163,7 +165,7 @@ class MtspCommander(TaskCommander):
         tflistener = tf.TransformListener()
         tflistener.waitForTransform('map', list(self.agent_active_status.keys())[
                                     0] + '/base_link', rospy.Time(), rospy.Duration(1.0))
-        robot_init, init_order = self.get_agent_position(
+        robot_init, init_order, _ = self.get_agent_position(
             tflistener, scale, origin)
         nodes = np.vstack((robot_init, nodes))
 

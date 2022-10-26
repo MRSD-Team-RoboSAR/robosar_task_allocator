@@ -13,6 +13,7 @@ from task_allocator.Robot import Robot
 
 import time
 from actionlib_msgs.msg import GoalStatusArray, GoalStatus
+from robosar_messages.msg import *
 
 class TaskListenerRobosarControl:
 
@@ -54,7 +55,7 @@ class TaskListenerRobosarControl:
         def __init__(self,name):
             print('Creating a controller status keeper for {}'.format(name))
 
-            rospy.Subscriber(name+'/status', GoalStatusArray, self.callback)
+            rospy.Subscriber('/lazy_traffic_controller/'+name+'/status', controller_status, self.callback)
 
             self.BUSY = 1
             self.IDLE = 2
@@ -68,23 +69,19 @@ class TaskListenerRobosarControl:
             return self.status
 
         def callback(self,data):
-            if(data.status_list):
-                #print(data.status_list)
-                status = data.status_list[0].status
-                if(status == GoalStatus.ACTIVE):
-                    self.status = self.BUSY
-                elif(self.status!=self.GOAL_SENT and status == GoalStatus.SUCCEEDED):
-                    self.status = self.IDLE
-
-
-            
+            #print(data.data)
+            status = data.data
+            if(status == data.BUSY):
+                self.status = self.BUSY
+            elif(self.status!=self.GOAL_SENT and status == data.SUCCEEDED):
+                self.status = self.IDLE
 
 
 
 
 if __name__ == "__main__":
     rospy.init_node('task_listener_control', anonymous=True)
-    robot0 = Robot('_0', [0,0], 0)
+    robot0 = Robot('agent_0', [0,0], 0)
     robots = [robot0]
     testObj = TaskListenerRobosarControl(robots)
     #time.sleep(1)
@@ -92,7 +89,7 @@ if __name__ == "__main__":
     rate = rospy.Rate(10) # 10hz
     while not rospy.is_shutdown():
         #hello_str = "hello world %s" % rospy.get_time()
-        rospy.loginfo(testObj.getStatus('_0'))
+        rospy.loginfo(testObj.getStatus('agent_0'))
         #pub.publish(hello_str)
         rate.sleep()
     print('End!')
