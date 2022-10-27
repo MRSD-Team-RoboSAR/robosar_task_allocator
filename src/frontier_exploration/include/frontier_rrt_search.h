@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <utility>
 #include "stdint.h"
 #include "functions.h"
 #include "mtrand.h"
@@ -18,11 +19,12 @@
 #include "geometry_msgs/Point.h"
 #include "visualization_msgs/Marker.h"
 
-class FrontierRRTSearch {
+class FrontierRRTSearch
+{
 
 public:
-    FrontierRRTSearch(ros::NodeHandle& nh);
-    ~FrontierRRTSearch() {};
+    FrontierRRTSearch(ros::NodeHandle &nh);
+    ~FrontierRRTSearch(){};
     void startSearch();
 
 protected:
@@ -30,19 +32,19 @@ protected:
     void getRobotLeaderPosition();
     void publishPoints();
     void initMarkers();
-    std::vector<float> Nearest(std::vector<std::vector<float>> V, std::vector<float> x_rand);
+    std::pair<float, float> Nearest(std::pair<float, float> x_rand);
 
     // Steer function prototype
-    std::vector<float> Steer(std::vector<float> x_nearest, std::vector<float> x_new, float rez);
+    std::pair<float, float> Steer(std::pair<float, float> x_nearest, std::pair<float, float> x_new, float rez);
 
     // ObstacleFree function prototype
-    char ObstacleFree(std::vector<float> x_nearest, std::vector<float> & x_new);
+    char ObstacleFree(std::pair<float, float> x_nearest, std::pair<float, float> &x_new);
 
-    int gridValue(std::vector<float> x);
-    std::vector<float> pixelsToMap(int x_pixel, int y_pixel);
+    int gridValue(std::pair<float, float> x);
+    std::pair<float, float> pixelsToMap(int x_pixel, int y_pixel);
 
 private:
-    ros::NodeHandle& nh_;
+    ros::NodeHandle &nh_;
     ros::Subscriber map_sub;
     ros::Publisher targets_pub;
     ros::Publisher marker_pub;
@@ -54,14 +56,13 @@ private:
     nav_msgs::OccupancyGrid mapData;
     geometry_msgs::PointStamped clickedpoint;
     geometry_msgs::PointStamped exploration_goal;
-    std::vector<std::vector<float>> V; // list of RRT nodes
+    std::vector<std::pair<float, float>> V; // list of RRT nodes
     visualization_msgs::Marker points, line;
     float xdim, ydim, resolution, Xstartx, Xstarty, init_map_x, init_map_y;
     float eta, range;
     std::string map_topic, base_frame_topic;
-    rdm r; // for genrating random numbers
-    MTRand drand;                     // double in [0, 1) generator, already init
-
+    rdm r;        // for genrating random numbers
+    MTRand drand; // double in [0, 1) generator, already init
 };
 
 #endif // FRONTIER_RRT_SEARCH_H

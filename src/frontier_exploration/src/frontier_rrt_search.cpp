@@ -59,7 +59,7 @@ void FrontierRRTSearch::publishPoints()
 }
 
 // Nearest function
-std::vector<float> FrontierRRTSearch::Nearest(std::vector<std::vector<float>> V, std::vector<float> x)
+std::pair<float, float> FrontierRRTSearch::Nearest(std::pair<float, float> x)
 {
 
     float min = Norm(V[0], x);
@@ -80,9 +80,9 @@ std::vector<float> FrontierRRTSearch::Nearest(std::vector<std::vector<float>> V,
 }
 
 // Steer function
-std::vector<float> FrontierRRTSearch::Steer(std::vector<float> x_nearest, std::vector<float> x_rand, float eta)
+std::pair<float, float> FrontierRRTSearch::Steer(std::pair<float, float> x_nearest, std::pair<float, float> x_rand, float eta)
 {
-    std::vector<float> x_new;
+    std::pair<float, float> x_new;
 
     if (Norm(x_nearest, x_rand) <= eta)
     {
@@ -90,20 +90,20 @@ std::vector<float> FrontierRRTSearch::Steer(std::vector<float> x_nearest, std::v
     }
     else
     {
-        float m = (x_rand[1] - x_nearest[1]) / (x_rand[0] - x_nearest[0]);
-        if (x_rand[0] == x_nearest[0])
+        float m = (x_rand.second - x_nearest.second) / (x_rand.first - x_nearest.first);
+        if (x_rand.first == x_nearest.first)
         {
-            x_new = {x_nearest[0], x_nearest[1] + eta};
+            x_new = {x_nearest.first, x_nearest.second + eta};
         }
-        x_new.push_back((sign(x_rand[0] - x_nearest[0])) * (sqrt((pow(eta, 2)) / ((pow(m, 2)) + 1))) + x_nearest[0]);
-        x_new.push_back(m * (x_new[0] - x_nearest[0]) + x_nearest[1]);
+        x_new.first = (sign(x_rand.first - x_nearest.first)) * (sqrt((pow(eta, 2)) / ((pow(m, 2)) + 1))) + x_nearest.first;
+        x_new.second = m * (x_new.first - x_nearest.first) + x_nearest.second;
     }
     return x_new;
 }
 
-std::vector<float> FrontierRRTSearch::pixelsToMap(int x_pixel, int y_pixel)
+std::pair<float, float> FrontierRRTSearch::pixelsToMap(int x_pixel, int y_pixel)
 {
-    std::vector<float> map_coords;
+    std::pair<float, float> map_coords;
     float scale = mapData.info.resolution;
     float x_origin = mapData.info.origin.position.x;
     float y_origin = mapData.info.origin.position.y;
@@ -112,7 +112,7 @@ std::vector<float> FrontierRRTSearch::pixelsToMap(int x_pixel, int y_pixel)
 }
 
 // gridValue function
-int FrontierRRTSearch::gridValue(std::vector<float> Xp)
+int FrontierRRTSearch::gridValue(std::pair<float, float> Xp)
 {
 
     float resolution = mapData.info.resolution;
@@ -124,7 +124,7 @@ int FrontierRRTSearch::gridValue(std::vector<float> Xp)
 
     // returns grid value at "Xp" location
     // map data:  100 occupied      -1 unknown       0 free
-    float indx = (floor((Xp[1] - Xstarty) / resolution) * width) + (floor((Xp[0] - Xstartx) / resolution));
+    float indx = (floor((Xp.second - Xstarty) / resolution) * width) + (floor((Xp.first - Xstartx) / resolution));
     int out;
     out = Data[int(indx)];
     return out;
@@ -132,11 +132,11 @@ int FrontierRRTSearch::gridValue(std::vector<float> Xp)
 
 // ObstacleFree function-------------------------------------
 
-char FrontierRRTSearch::ObstacleFree(std::vector<float> xnear, std::vector<float> &xnew)
+char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<float, float> &xnew)
 {
     float rez = float(mapData.info.resolution) * .2;
     float stepz = int(ceil(Norm(xnew, xnear)) / rez);
-    std::vector<float> xi = xnear;
+    std::pair<float, float> xi = xnear;
     char obs = 0;
     char unk = 0;
 
@@ -236,18 +236,16 @@ void FrontierRRTSearch::startSearch()
     initMarkers();
     geometry_msgs::Point trans;
     trans = points.points[0];
-    std::vector<float> xnew;
-    xnew.push_back(trans.x);
-    xnew.push_back(trans.y);
+    std::pair<float, float> xnew;
+    xnew = {trans.x, trans.y};
     V.push_back(xnew);
 
     points.points.clear();
     marker_pub.publish(points);
 
-    std::vector<float> frontiers;
     int i = 0;
     float xr, yr;
-    std::vector<float> x_rand, x_nearest, x_new;
+    std::pair<float, float> x_rand, x_nearest, x_new;
 
     // Main loop
     ROS_INFO("Starting RRT");
@@ -256,18 +254,16 @@ void FrontierRRTSearch::startSearch()
     while (ros::ok())
     {
         // Sample free
-        x_rand.clear();
         int xp_r = drand() * mapData.info.width;
         int yp_r = drand() * mapData.info.height;
-        std::vector<float> map_coords = pixelsToMap(xp_r, yp_r);
-        xr = map_coords[0] + drand() * 0.2;
-        yr = map_coords[1] + drand() * 0.2;
+        std::pair<float, float> map_coords = pixelsToMap(xp_r, yp_r);
+        xr = map_coords.first + drand() * 0.2;
+        yr = map_coords.second + drand() * 0.2;
 
-        x_rand.push_back(xr);
-        x_rand.push_back(yr);
+        x_rand = {xr, yr};
 
         // Nearest
-        x_nearest = Nearest(V, x_rand);
+        x_nearest = Nearest(x_rand);
 
         // Steer
         x_new = Steer(x_nearest, x_rand, eta);
@@ -279,12 +275,12 @@ void FrontierRRTSearch::startSearch()
         {
             exploration_goal.header.stamp = ros::Time(0);
             exploration_goal.header.frame_id = mapData.header.frame_id;
-            exploration_goal.point.x = x_new[0];
-            exploration_goal.point.y = x_new[1];
+            exploration_goal.point.x = x_new.first;
+            exploration_goal.point.y = x_new.second;
             exploration_goal.point.z = 0.0;
             geometry_msgs::Point p;
-            p.x = x_new[0];
-            p.y = x_new[1];
+            p.x = x_new.first;
+            p.y = x_new.second;
             p.z = 0.0;
             points.points.push_back(p);
             marker_pub.publish(points);
@@ -295,12 +291,12 @@ void FrontierRRTSearch::startSearch()
         {
             V.push_back(x_new);
             geometry_msgs::Point p;
-            p.x = x_new[0];
-            p.y = x_new[1];
+            p.x = x_new.first;
+            p.y = x_new.second;
             p.z = 0.0;
             line.points.push_back(p);
-            p.x = x_nearest[0];
-            p.y = x_nearest[1];
+            p.x = x_nearest.first;
+            p.y = x_nearest.second;
             p.z = 0.0;
             line.points.push_back(p);
         }
