@@ -125,12 +125,13 @@ class FrontierAssignmentCommander(TaskCommander):
             utils.plot_pgm_data(self.map_data)
             pix_frontier = self.arr_m_to_pixels(self.frontiers, scale, origin)
             plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
-            for name, pos in robot_pos.items():
-                pix_rob = utils.m_to_pixels(pos, scale, origin)
+            for i in range(len(names)):
+                pix_rob = utils.m_to_pixels(starts[i], scale, origin)
+                pix_goal = utils.m_to_pixels(goals[i], scale, origin)
                 plt.plot(pix_rob[0], pix_rob[1], "ko", zorder=100)
                 plt.plot(
-                    [pix_rob[0], pix_frontier[env.robots[name].next][0]],
-                    [pix_rob[1], pix_frontier[env.robots[name].next][1]],
+                    [pix_rob[0], pix_goal[0]],
+                    [pix_rob[1], pix_goal[1]],
                     "k-",
                     zorder=90,
                 )

@@ -154,7 +154,7 @@ class MissionCommander:
         print("sent homing positions {}".format(goals))
 
     def stop(self):
-        if self._tc_node:
+        if self._tc_node and self._tc_process:
             self._tc_process.stop()
         rospy.logwarn("Stopping task allocation.")
 
