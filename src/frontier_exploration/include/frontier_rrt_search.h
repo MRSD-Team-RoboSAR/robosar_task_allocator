@@ -52,7 +52,6 @@ private:
 
     std::string ns;
     std::string robot_leader;
-    bool started_ = false;
     nav_msgs::OccupancyGrid mapData;
     geometry_msgs::PointStamped clickedpoint;
     geometry_msgs::PointStamped exploration_goal;

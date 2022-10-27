@@ -16,7 +16,6 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
     map_sub = nh_.subscribe(map_topic, 100, &FrontierRRTSearch::mapCallBack, this);
     targets_pub = nh_.advertise<geometry_msgs::PointStamped>("/detected_points", 10);
     marker_pub = nh_.advertise<visualization_msgs::Marker>(ns + "_shapes", 10);
-    pub_timer = nh_.createTimer(ros::Duration(1 / 10.0), std::bind(&FrontierRRTSearch::publishPoints, this));
 }
 
 // Subscribers callback functions---------------------------------------
@@ -50,12 +49,6 @@ void FrontierRRTSearch::getRobotLeaderPosition()
     {
         ROS_ERROR("%s", ex.what());
     }
-}
-
-void FrontierRRTSearch::publishPoints()
-{
-    if (started_)
-        targets_pub.publish(exploration_goal);
 }
 
 // Nearest function
@@ -130,8 +123,6 @@ int FrontierRRTSearch::gridValue(std::pair<float, float> Xp)
     return out;
 }
 
-// ObstacleFree function-------------------------------------
-
 char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<float, float> &xnew)
 {
     float rez = float(mapData.info.resolution) * .2;
@@ -146,10 +137,7 @@ char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<fl
         xi = Steer(xi, xnew, rez);
 
         if (gridValue(xi) == 100)
-        {
             obs = 1;
-        }
-
         if (gridValue(xi) == -1)
         {
             unk = 1;
@@ -159,19 +147,11 @@ char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<fl
     char out = 0;
     xnew = xi;
     if (unk == 1)
-    {
         out = -1;
-    }
-
     if (obs == 1)
-    {
         out = 0;
-    }
-
     if (obs != 1 && unk != 1)
-    {
         out = 1;
-    }
 
     return out;
 }
@@ -284,6 +264,7 @@ void FrontierRRTSearch::startSearch()
             p.z = 0.0;
             points.points.push_back(p);
             marker_pub.publish(points);
+            targets_pub.publish(exploration_goal);
             points.points.clear();
         }
 
@@ -302,9 +283,6 @@ void FrontierRRTSearch::startSearch()
         }
 
         marker_pub.publish(line);
-
-        if (!started_)
-            started_ = true;
 
         ros::spinOnce();
         rate.sleep();
