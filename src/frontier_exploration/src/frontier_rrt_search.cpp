@@ -14,13 +14,14 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
     ros::param::param<std::string>(ns + "/robot_leader", robot_leader, "agent1");
 
     map_sub = nh_.subscribe(map_topic, 100, &FrontierRRTSearch::mapCallBack, this);
-    targets_pub = nh_.advertise<geometry_msgs::PointStamped>("/detected_points", 10);
+    targets_pub = nh_.advertise<geometry_msgs::PointStamped>(ns + "/detected_points", 10);
     marker_pub = nh_.advertise<visualization_msgs::Marker>(ns + "_shapes", 10);
 }
 
 // Subscribers callback functions---------------------------------------
 void FrontierRRTSearch::mapCallBack(const nav_msgs::OccupancyGrid::ConstPtr &msg)
 {
+    boost::mutex::scoped_lock(map_mutex_);
     mapData = *msg;
 }
 
@@ -42,8 +43,8 @@ void FrontierRRTSearch::getRobotLeaderPosition()
         p.y = tf.transform.translation.y;
         p.z = 0;
 
-        points.points.push_back(p);
-        marker_pub.publish(points);
+        marker_points.points.push_back(p);
+        marker_pub.publish(marker_points);
     }
     catch (tf2::TransformException &ex)
     {
@@ -107,7 +108,6 @@ std::pair<float, float> FrontierRRTSearch::pixelsToMap(int x_pixel, int y_pixel)
 // gridValue function
 int FrontierRRTSearch::gridValue(std::pair<float, float> Xp)
 {
-
     float resolution = mapData.info.resolution;
     float Xstartx = mapData.info.origin.position.x;
     float Xstarty = mapData.info.origin.position.y;
@@ -159,38 +159,38 @@ char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<fl
 void FrontierRRTSearch::initMarkers()
 {
     // visualizations  points and lines..
-    points.header.frame_id = mapData.header.frame_id;
-    line.header.frame_id = mapData.header.frame_id;
-    points.header.stamp = ros::Time(0);
-    line.header.stamp = ros::Time(0);
+    marker_points.header.frame_id = mapData.header.frame_id;
+    marker_line.header.frame_id = mapData.header.frame_id;
+    marker_points.header.stamp = ros::Time(0);
+    marker_line.header.stamp = ros::Time(0);
 
-    points.ns = line.ns = "markers";
-    points.id = 0;
-    line.id = 1;
+    marker_points.ns = marker_line.ns = "markers";
+    marker_points.id = 0;
+    marker_line.id = 1;
 
-    points.type = points.POINTS;
-    line.type = line.LINE_LIST;
+    marker_points.type = marker_points.POINTS;
+    marker_line.type = marker_line.LINE_LIST;
 
     // Set the marker action.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
-    points.action = points.ADD;
-    line.action = line.ADD;
-    points.pose.orientation.w = 1.0;
-    line.pose.orientation.w = 1.0;
-    line.scale.x = 0.03;
-    line.scale.y = 0.03;
-    points.scale.x = 0.3;
-    points.scale.y = 0.3;
+    marker_points.action = marker_points.ADD;
+    marker_line.action = marker_line.ADD;
+    marker_points.pose.orientation.w = 1.0;
+    marker_line.pose.orientation.w = 1.0;
+    marker_line.scale.x = 0.03;
+    marker_line.scale.y = 0.03;
+    marker_points.scale.x = 0.3;
+    marker_points.scale.y = 0.3;
 
-    line.color.r = 9.0 / 255.0;
-    line.color.g = 91.0 / 255.0;
-    line.color.b = 236.0 / 255.0;
-    points.color.r = 255.0 / 255.0;
-    points.color.g = 0.0 / 255.0;
-    points.color.b = 0.0 / 255.0;
-    points.color.a = 1.0;
-    line.color.a = 1.0;
-    points.lifetime = ros::Duration();
-    line.lifetime = ros::Duration();
+    marker_line.color.r = 9.0 / 255.0;
+    marker_line.color.g = 91.0 / 255.0;
+    marker_line.color.b = 236.0 / 255.0;
+    marker_points.color.r = 255.0 / 255.0;
+    marker_points.color.g = 0.0 / 255.0;
+    marker_points.color.b = 0.0 / 255.0;
+    marker_points.color.a = 1.0;
+    marker_line.color.a = 1.0;
+    marker_points.lifetime = ros::Duration();
+    marker_line.lifetime = ros::Duration();
 
     getRobotLeaderPosition();
     ROS_INFO("Received start point.");
@@ -215,13 +215,13 @@ void FrontierRRTSearch::startSearch()
 
     initMarkers();
     geometry_msgs::Point trans;
-    trans = points.points[0];
+    trans = marker_points.points[0];
     std::pair<float, float> xnew;
     xnew = {trans.x, trans.y};
     V.push_back(xnew);
 
-    points.points.clear();
-    marker_pub.publish(points);
+    marker_points.points.clear();
+    marker_pub.publish(marker_points);
 
     int i = 0;
     float xr, yr;
@@ -230,9 +230,11 @@ void FrontierRRTSearch::startSearch()
     // Main loop
     ROS_INFO("Starting RRT");
     ros::Rate rate(100);
+    geometry_msgs::PointStamped exploration_goal;
 
     while (ros::ok())
     {
+        boost::mutex::scoped_lock(map_mutex_);
         // Sample free
         int xp_r = drand() * mapData.info.width;
         int yp_r = drand() * mapData.info.height;
@@ -262,10 +264,10 @@ void FrontierRRTSearch::startSearch()
             p.x = x_new.first;
             p.y = x_new.second;
             p.z = 0.0;
-            points.points.push_back(p);
-            marker_pub.publish(points);
+            marker_points.points.push_back(p);
+            marker_pub.publish(marker_points);
             targets_pub.publish(exploration_goal);
-            points.points.clear();
+            marker_points.points.clear();
         }
 
         else if (checking == 1)
@@ -275,14 +277,14 @@ void FrontierRRTSearch::startSearch()
             p.x = x_new.first;
             p.y = x_new.second;
             p.z = 0.0;
-            line.points.push_back(p);
+            marker_line.points.push_back(p);
             p.x = x_nearest.first;
             p.y = x_nearest.second;
             p.z = 0.0;
-            line.points.push_back(p);
+            marker_line.points.push_back(p);
         }
 
-        marker_pub.publish(line);
+        marker_pub.publish(marker_line);
 
         ros::spinOnce();
         rate.sleep();

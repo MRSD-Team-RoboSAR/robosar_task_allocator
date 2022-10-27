@@ -53,10 +53,9 @@ private:
     std::string ns;
     std::string robot_leader;
     nav_msgs::OccupancyGrid mapData;
-    geometry_msgs::PointStamped clickedpoint;
-    geometry_msgs::PointStamped exploration_goal;
+    boost::mutex map_mutex_;
     std::vector<std::pair<float, float>> V; // list of RRT nodes
-    visualization_msgs::Marker points, line;
+    visualization_msgs::Marker marker_points, marker_line;
     float xdim, ydim, resolution, Xstartx, Xstarty, init_map_x, init_map_y;
     float eta, range;
     std::string map_topic, base_frame_topic;

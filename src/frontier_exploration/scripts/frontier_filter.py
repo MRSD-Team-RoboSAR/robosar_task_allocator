@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-import os
-import sys
 from copy import copy
+from threading import Lock
 
-import matplotlib.pyplot as plt
 import numpy as np
 import rospy
 import tf
 from geometry_msgs.msg import Point, PointStamped
 from nav_msgs.msg import OccupancyGrid
 from numpy import array, vstack
-from robosar_messages.msg import PointArray
 from sklearn.cluster import MeanShift
 from visualization_msgs.msg import Marker
 
@@ -23,8 +20,11 @@ class FrontierFilter:
         self.mapData = OccupancyGrid()
         self.received_frontiers = []
         self.filtered_frontiers = []
+        self.map_lock = Lock()
+        self.frontier_lock = Lock()
 
         # fetching all parameters
+        ns = rospy.get_name()
         self.map_topic = rospy.get_param("~map_topic", "/map")
         self.occ_threshold = rospy.get_param("~costmap_clearing_threshold", 70)
         self.info_threshold = rospy.get_param("~info_gain_threshold", 0.2)
@@ -54,43 +54,26 @@ class FrontierFilter:
         rospy.Subscriber(
             self.goals_topic, PointStamped, callback=self.frontiersCallback
         )
-        self.frontier_pub = rospy.Publisher("frontier_centroids", Marker, queue_size=10)
+        self.frontier_pub = rospy.Publisher(
+            ns + "/frontier_centroids", Marker, queue_size=10
+        )
 
         rospy.loginfo("the map and global costmaps are received")
 
     def frontiersCallback(self, data):
-        x = [array([data.point.x, data.point.y])]
-        if len(self.received_frontiers) > 0:
-            self.received_frontiers = vstack((self.received_frontiers, x))
-        else:
-            self.received_frontiers = x
+        with self.frontier_lock:
+            x = np.array([data.point.x, data.point.y])
+            self.received_frontiers.append(x)
 
     def mapCallback(self, data):
-        self.mapData = data
+        with self.map_lock:
+            self.mapData = data
 
     def init_markers(self):
-        points = Marker()
         points_clust = Marker()
-        # Set the frame ID and timestamp.  See the TF tutorials for information on these.
-        points.header.frame_id = self.mapData.header.frame_id
-        points.header.stamp = rospy.Time.now()
-        points.ns = "markers2"
-        points.id = 0
-        points.type = Marker.POINTS
-        # Set the marker action for latched self.frontiers.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
-        points.action = Marker.ADD
-        points.pose.orientation.w = 1.0
-        points.scale.x = 0.2
-        points.scale.y = 0.2
-        points.color.r = 255.0 / 255.0
-        points.color.g = 255.0 / 255.0
-        points.color.b = 0.0 / 255.0
-        points.color.a = 1
-        points.lifetime = rospy.Duration()
-
         points_clust.header.frame_id = self.mapData.header.frame_id
         points_clust.header.stamp = rospy.Time.now()
-        points_clust.ns = "markers3"
+        points_clust.ns = "cluster_markers"
         points_clust.id = 4
 
         points_clust.type = Marker.POINTS
@@ -105,7 +88,7 @@ class FrontierFilter:
         points_clust.color.a = 1
         points_clust.lifetime = rospy.Duration()
 
-        return points, points_clust
+        return points_clust
 
     def filter(self):
         # wait if no frontier is received yet
@@ -113,70 +96,69 @@ class FrontierFilter:
         while len(self.received_frontiers) < 1:
             pass
 
-        points, points_clust = self.init_markers()
+        centroid_markers = self.init_markers()
 
-        temppoint = PointStamped()
-        temppoint.header.frame_id = self.mapData.header.frame_id
-        temppoint.header.stamp = rospy.Time(0)
-        temppoint.point.z = 0.0
-
-        arraypoints = PointArray()
-        tempPoint = Point()
-        tempPoint.z = 0.0
+        centroid_point = PointStamped()
+        centroid_point.header.frame_id = self.mapData.header.frame_id
+        centroid_point.header.stamp = rospy.Time(0)
+        centroid_point.point.z = 0.0
 
         p = Point()
         p.z = 0
 
         rospy.loginfo("Starting filter")
         while not rospy.is_shutdown():
-            centroids = []
-            front = []
-            # Filter out received frontiers by information gain
-            for f in self.received_frontiers:
-                front.append(f)
+            with self.map_lock and self.frontier_lock:
+                centroids = []
+                possible_frontiers = []
+                # Filter out received frontiers by information gain
+                for f in self.received_frontiers:
+                    possible_frontiers.append(f)
 
-            # Filter out previous centroids by information gain
-            for f in self.filtered_frontiers:
-                info_gain = informationGain(
-                    self.mapData, [f[0], f[1]], self.info_radius
-                )
-                if info_gain > self.info_threshold:
-                    front.append(f)
+                # Filter out previous centroids by information gain
+                for f in self.filtered_frontiers:
+                    info_gain = informationGain(
+                        self.mapData, [f[0], f[1]], self.info_radius
+                    )
+                    if info_gain > self.info_threshold:
+                        possible_frontiers.append(f)
 
-            # Clustering frontier points
-            if len(front) > 1:
-                ms = MeanShift(bandwidth=self.cluster_bandwidth)
-                ms.fit(front)
-                centroids = (
-                    ms.cluster_centers_
-                )  # centroids array is the centers of each cluster
-            if len(front) == 1:
-                centroids = front
+                # Clustering frontier points
+                if len(possible_frontiers) > 1:
+                    ms = MeanShift(bandwidth=self.cluster_bandwidth)
+                    ms.fit(possible_frontiers)
+                    centroids = (
+                        ms.cluster_centers_
+                    )  # centroids array is the centers of each cluster
+                if len(possible_frontiers) == 1:
+                    centroids = possible_frontiers
 
-            # make sure centroid is not occupied
-            centroids_filtered = []
-            for c in centroids:
-                temppoint.point.x = c[0]
-                temppoint.point.y = c[1]
-                x = array([temppoint.point.x, temppoint.point.y])
-                if (
-                    gridValue(self.mapData, x) < self.occ_threshold
-                    and informationGain(self.mapData, [x[0], x[1]], self.info_radius)
-                    > 0.15
-                ):
-                    centroids_filtered.append(c)
-            self.filtered_frontiers = copy(centroids_filtered)
+                # make sure centroid is not occupied
+                centroids_filtered = []
+                for c in centroids:
+                    centroid_point.point.x = c[0]
+                    centroid_point.point.y = c[1]
+                    x = array([centroid_point.point.x, centroid_point.point.y])
+                    if (
+                        gridValue(self.mapData, x) < self.occ_threshold
+                        and informationGain(
+                            self.mapData, [x[0], x[1]], self.info_radius
+                        )
+                        > 0.15
+                    ):
+                        centroids_filtered.append(c)
+                self.filtered_frontiers = copy(centroids_filtered)
 
-            # publishing
-            pp = []
-            for q in range(0, len(centroids_filtered)):
-                p.x = centroids_filtered[q][0]
-                p.y = centroids_filtered[q][1]
-                pp.append(copy(p))
-            points_clust.points = pp
-            self.frontier_pub.publish(points_clust)
+                # publishing
+                pp = []
+                for q in range(0, len(centroids_filtered)):
+                    p.x = centroids_filtered[q][0]
+                    p.y = centroids_filtered[q][1]
+                    pp.append(copy(p))
+                centroid_markers.points = pp
+                self.frontier_pub.publish(centroid_markers)
 
-            self.received_frontiers = []
+                self.received_frontiers = []
             self.rate.sleep()
 
 
