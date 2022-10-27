@@ -241,6 +241,9 @@ class TA_frontier_greedy(TA):
 
     def assign(self):
         self.env.frontier.clear()
+        names = []
+        starts = []
+        goals = []
         for name in self.env.robots.keys():
             C = self.env.adj[self.env.get_robot_id(name), :]
             robot = self.env.robots[name]
@@ -261,3 +264,7 @@ class TA_frontier_greedy(TA):
             )
             robot.next = min_node
             self.env.frontier.add(min_node)
+            names.append(name)
+            starts.append(robot.pos)
+            goals.append(self.env.nodes[min_node])
+        return names, starts, goals

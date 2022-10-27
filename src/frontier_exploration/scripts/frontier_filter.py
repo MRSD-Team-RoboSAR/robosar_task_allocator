@@ -56,10 +56,10 @@ class FrontierFilter:
             self.goals_topic, PointStamped, callback=self.frontiersCallback
         )
         self.frontier_marker_pub = rospy.Publisher(
-            ns + "frontier_centroids", Marker, queue_size=10
+            ns + "/frontier_centroids", Marker, queue_size=10
         )
         self.frontier_array_pub = rospy.Publisher(
-            ns + "filtered_frontiers", PointArray, queue_size=10
+            ns + "/filtered_frontiers", PointArray, queue_size=10
         )
 
         rospy.loginfo("the map and global costmaps are received")

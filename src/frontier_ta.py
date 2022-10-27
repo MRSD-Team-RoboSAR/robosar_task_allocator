@@ -17,11 +17,13 @@ from task_transmitter.task_listener_robosar_control import TaskListenerRobosarCo
 class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
-        rateHz = rospy.get_param("~rate", 1.0 / 5)
+        rateHz = rospy.get_param("~rate", 1.0 / 10)
         self.rate = rospy.Rate(rateHz)
         self.frontiers = []
         self.map_data = None
-        rospy.Subscriber("/filtered_frontiers", PointArray, self.frontier_callback)
+        rospy.Subscriber(
+            "/frontier_filter/filtered_frontiers", PointArray, self.frontier_callback
+        )
 
     def frontier_callback(self, msg):
         points = []
@@ -102,7 +104,20 @@ class FrontierAssignmentCommander(TaskCommander):
         while not rospy.is_shutdown():
             robot_pos = self.get_agent_position(tflistener, scale, origin)
             env.update(self.frontiers, robot_pos)
-            solver.assign()
+            names, starts, goals = solver.assign()
+
+            # publish tasks
+            rospy.loginfo("publishing")
+            task_msg = task_allocation()
+            task_msg.id = [n for n in names]
+            task_msg.startx = [s[0] for s in starts]
+            task_msg.starty = [s[1] for s in starts]
+            task_msg.goalx = [g[0] for g in goals]
+            task_msg.goaly = [g[1] for g in goals]
+            while self.task_pub.get_num_connections() == 0:
+                rospy.loginfo("Waiting for subscriber to task topic:")
+                rospy.sleep(1)
+            self.task_pub.publish(task_msg)
 
             # plot
             plt.clf()
