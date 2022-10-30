@@ -55,6 +55,10 @@ public:
         }
         remove_node(id);
     };
+    std::shared_ptr<Node> get_parent_node(std::shared_ptr<Node> child)
+    {
+        return get_node(child->get_parent());
+    };
 
     std::unordered_map<int, std::shared_ptr<Node>> nodes_;
     int next_id_ = 0;

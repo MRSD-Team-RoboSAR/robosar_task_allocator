@@ -164,7 +164,7 @@ void FrontierRRTSearch::pruneRRT()
         if (j->second->get_parent() == -1)
             continue;
         std::pair<float, float> x_child = j->second->get_coord();
-        std::pair<float, float> x_parent = rrt_.get_node(j->second->get_parent())->get_coord();
+        std::pair<float, float> x_parent = rrt_.get_parent_node(j->second)->get_coord();
         char checking = ObstacleFree(x_parent, x_child);
         if (checking == 0)
         {
@@ -186,8 +186,8 @@ void FrontierRRTSearch::pruneRRT()
         p.y = j->second->get_y();
         p.z = 0.0;
         marker_line.points.push_back(p);
-        p.x = rrt_.get_node(j->second->get_parent())->get_x();
-        p.y = rrt_.get_node(j->second->get_parent())->get_y();
+        p.x = rrt_.get_parent_node(j->second)->get_x();
+        p.y = rrt_.get_parent_node(j->second)->get_y();
         p.z = 0.0;
         marker_line.points.push_back(p);
     }
