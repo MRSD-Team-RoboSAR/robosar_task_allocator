@@ -53,7 +53,7 @@ void FrontierRRTSearch::getRobotLeaderPosition()
 }
 
 // Nearest function
-int FrontierRRTSearch::Nearest(std::pair<float, float> x)
+int FrontierRRTSearch::Nearest(std::pair<float, float> &x)
 {
 
     float min = Norm(rrt_.get_node(0)->get_coord(), x);
@@ -74,7 +74,7 @@ int FrontierRRTSearch::Nearest(std::pair<float, float> x)
 }
 
 // Steer function
-std::pair<float, float> FrontierRRTSearch::Steer(std::pair<float, float> x_nearest, std::pair<float, float> x_rand, float eta)
+std::pair<float, float> FrontierRRTSearch::Steer(std::pair<float, float> &x_nearest, std::pair<float, float> &x_rand, float eta)
 {
     std::pair<float, float> x_new;
 
@@ -106,7 +106,7 @@ std::pair<float, float> FrontierRRTSearch::pixelsToMap(int x_pixel, int y_pixel)
 }
 
 // gridValue function
-int FrontierRRTSearch::gridValue(std::pair<float, float> Xp)
+int FrontierRRTSearch::gridValue(std::pair<float, float> &Xp)
 {
     float resolution = mapData.info.resolution;
     float Xstartx = mapData.info.origin.position.x;
@@ -123,7 +123,7 @@ int FrontierRRTSearch::gridValue(std::pair<float, float> Xp)
     return out;
 }
 
-char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<float, float> &xnew)
+char FrontierRRTSearch::ObstacleFree(std::pair<float, float> &xnear, std::pair<float, float> &xnew)
 {
     float rez = float(mapData.info.resolution) * .2;
     float stepz = int(ceil(Norm(xnew, xnear)) / rez);
@@ -158,7 +158,40 @@ char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<fl
 
 void FrontierRRTSearch::pruneRRT()
 {
-    return;
+    std::vector<int> to_remove;
+    for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++)
+    {
+        if (j->second->get_parent() == -1)
+            continue;
+        std::pair<float, float> x_child = j->second->get_coord();
+        std::pair<float, float> x_parent = rrt_.get_node(j->second->get_parent())->get_coord();
+        char checking = ObstacleFree(x_parent, x_child);
+        if (checking == 0)
+        {
+            ROS_INFO("Removing %d", j->first);
+            to_remove.push_back(j->first);
+        }
+    }
+    for (int id : to_remove)
+    {
+        rrt_.remove_node(id);
+    }
+    // visualization
+    marker_line.points.clear();
+    for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++)
+    {
+        if (j->second->get_parent() == -1)
+            continue;
+        geometry_msgs::Point p;
+        p.x = j->second->get_x();
+        p.y = j->second->get_y();
+        p.z = 0.0;
+        marker_line.points.push_back(p);
+        p.x = rrt_.get_node(j->second->get_parent())->get_x();
+        p.y = rrt_.get_node(j->second->get_parent())->get_y();
+        p.z = 0.0;
+        marker_line.points.push_back(p);
+    }
 }
 
 void FrontierRRTSearch::initMarkers()
@@ -235,10 +268,16 @@ void FrontierRRTSearch::startSearch()
     ros::Rate rate(100);
     geometry_msgs::PointStamped exploration_goal;
 
+    int prune_counter = 0;
+
     while (ros::ok())
     {
         boost::mutex::scoped_lock(map_mutex_);
-        pruneRRT();
+        if (prune_counter == 500)
+        {
+            pruneRRT();
+            prune_counter = 0;
+        }
 
         // Sample free
         int xp_r = drand() * mapData.info.width;
@@ -291,6 +330,7 @@ void FrontierRRTSearch::startSearch()
         }
 
         marker_pub.publish(marker_line);
+        prune_counter++;
 
         ros::spinOnce();
         rate.sleep();

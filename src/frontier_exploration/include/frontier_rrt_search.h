@@ -33,15 +33,15 @@ protected:
     void getRobotLeaderPosition();
     void publishPoints();
     void initMarkers();
-    int Nearest(std::pair<float, float> x_rand);
+    int Nearest(std::pair<float, float> &x_rand);
 
     // Steer function prototype
-    std::pair<float, float> Steer(std::pair<float, float> x_nearest, std::pair<float, float> x_new, float rez);
+    std::pair<float, float> Steer(std::pair<float, float> &x_nearest, std::pair<float, float> &x_new, float rez);
 
     // ObstacleFree function prototype
-    char ObstacleFree(std::pair<float, float> x_nearest, std::pair<float, float> &x_new);
+    char ObstacleFree(std::pair<float, float> &x_nearest, std::pair<float, float> &x_new);
 
-    int gridValue(std::pair<float, float> x);
+    int gridValue(std::pair<float, float> &x);
     std::pair<float, float> pixelsToMap(int x_pixel, int y_pixel);
 
     void pruneRRT();

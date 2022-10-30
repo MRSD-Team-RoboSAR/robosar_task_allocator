@@ -17,6 +17,11 @@ public:
     }
     void remove_child(int child)
     {
+        if (children_.find(child) == children_.end())
+        {
+            ROS_INFO("Child %d does not exist, cannot remove.", child);
+            return;
+        }
         children_.erase(child);
     }
     std::unordered_set<int> get_children() { return children_; }

@@ -4,7 +4,7 @@
     <arg name="eta" value="1.0"/>
     <arg name="Geta" value="15.0"/>
 
-    <node pkg="robosar_task_allocator" type="frontier_rrt_search_node" name="frontier_rrt_search_node" output="screen">
+    <node pkg="robosar_task_allocator" type="frontier_rrt_search_node" name="frontier_rrt_search_node" output="screen" launch-prefix="gdb -ex run --args">
         <param name="eta" value="$(arg Geta)"/>
         <param name="map_topic" value="/map"/>
         <param name="robot_leader" value="agent1"/>

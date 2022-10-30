@@ -15,7 +15,7 @@ public:
     {
         if (nodes_.find(id) == nodes_.end())
         {
-            ROS_INFO("Node ID does not exist.");
+            ROS_INFO("Node ID %d does not exist, cannot get.", id);
             return nullptr;
         }
         return nodes_[id];
@@ -23,23 +23,26 @@ public:
     void add_node(float x, float y, int parent)
     {
         nodes_[next_id_] = std::make_shared<Node>(x, y, next_id_, parent);
+        auto parent_node = get_node(parent);
+        if (parent_node)
+            parent_node->add_child(next_id_);
         next_id_++;
     };
     void remove_node(int id)
     {
         if (nodes_.find(id) == nodes_.end())
         {
-            ROS_INFO("Node ID does not exist.");
+            ROS_INFO("Node ID %d does not exist, cannot remove.", id);
             return;
         }
-        auto curr_node = nodes_[id];
+        auto curr_node = get_node(id);
         std::unordered_set<int> children = curr_node->get_children();
         // A leaf node
         if (children.size() == 0)
         {
             if (curr_node->get_parent() != -1)
             {
-                auto parent = nodes_[curr_node->get_parent()];
+                auto parent = get_node(curr_node->get_parent());
                 parent->remove_child(id);
             }
             nodes_.erase(id);
