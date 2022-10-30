@@ -53,24 +53,24 @@ void FrontierRRTSearch::getRobotLeaderPosition()
 }
 
 // Nearest function
-std::pair<float, float> FrontierRRTSearch::Nearest(std::pair<float, float> x)
+int FrontierRRTSearch::Nearest(std::pair<float, float> x)
 {
 
-    float min = Norm(V[0], x);
+    float min = Norm(rrt_.get_node(0)->get_coord(), x);
     int min_index;
     float temp;
 
-    for (int j = 0; j < V.size(); j++)
+    for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++)
     {
-        temp = Norm(V[j], x);
+        temp = Norm(j->second->get_coord(), x);
         if (temp <= min)
         {
             min = temp;
-            min_index = j;
+            min_index = j->first;
         }
     }
 
-    return V[min_index];
+    return min_index;
 }
 
 // Steer function
@@ -156,6 +156,11 @@ char FrontierRRTSearch::ObstacleFree(std::pair<float, float> xnear, std::pair<fl
     return out;
 }
 
+void FrontierRRTSearch::pruneRRT()
+{
+    return;
+}
+
 void FrontierRRTSearch::initMarkers()
 {
     // visualizations  points and lines..
@@ -216,9 +221,7 @@ void FrontierRRTSearch::startSearch()
     initMarkers();
     geometry_msgs::Point trans;
     trans = marker_points.points[0];
-    std::pair<float, float> xnew;
-    xnew = {trans.x, trans.y};
-    V.push_back(xnew);
+    rrt_.add_node(trans.x, trans.y, -1);
 
     marker_points.points.clear();
     marker_pub.publish(marker_points);
@@ -235,6 +238,8 @@ void FrontierRRTSearch::startSearch()
     while (ros::ok())
     {
         boost::mutex::scoped_lock(map_mutex_);
+        pruneRRT();
+
         // Sample free
         int xp_r = drand() * mapData.info.width;
         int yp_r = drand() * mapData.info.height;
@@ -245,7 +250,8 @@ void FrontierRRTSearch::startSearch()
         x_rand = {xr, yr};
 
         // Nearest
-        x_nearest = Nearest(x_rand);
+        int x_nearest_id = Nearest(x_rand);
+        x_nearest = rrt_.get_node(x_nearest_id)->get_coord();
 
         // Steer
         x_new = Steer(x_nearest, x_rand, eta);
@@ -272,7 +278,7 @@ void FrontierRRTSearch::startSearch()
 
         else if (checking == 1)
         {
-            V.push_back(x_new);
+            rrt_.add_node(x_new.first, x_new.second, x_nearest_id);
             geometry_msgs::Point p;
             p.x = x_new.first;
             p.y = x_new.second;

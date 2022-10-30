@@ -11,6 +11,7 @@
 #include "stdint.h"
 #include "functions.h"
 #include "mtrand.h"
+#include "RRT.h"
 
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/PointStamped.h"
@@ -32,7 +33,7 @@ protected:
     void getRobotLeaderPosition();
     void publishPoints();
     void initMarkers();
-    std::pair<float, float> Nearest(std::pair<float, float> x_rand);
+    int Nearest(std::pair<float, float> x_rand);
 
     // Steer function prototype
     std::pair<float, float> Steer(std::pair<float, float> x_nearest, std::pair<float, float> x_new, float rez);
@@ -42,6 +43,8 @@ protected:
 
     int gridValue(std::pair<float, float> x);
     std::pair<float, float> pixelsToMap(int x_pixel, int y_pixel);
+
+    void pruneRRT();
 
 private:
     ros::NodeHandle &nh_;
@@ -54,7 +57,7 @@ private:
     std::string robot_leader;
     nav_msgs::OccupancyGrid mapData;
     boost::mutex map_mutex_;
-    std::vector<std::pair<float, float>> V; // list of RRT nodes
+    RRT rrt_;
     visualization_msgs::Marker marker_points, marker_line;
     float xdim, ydim, resolution, Xstartx, Xstarty, init_map_x, init_map_y;
     float eta, range;
