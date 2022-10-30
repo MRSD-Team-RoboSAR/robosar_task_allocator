@@ -1,0 +1,23 @@
+<!-- Launch file for the rrt-detector -->
+
+<launch>
+    <arg name="eta" value="1.0"/>
+    <arg name="Geta" value="15.0"/>
+
+    <node pkg="robosar_task_allocator" type="frontier_rrt_search_node" name="frontier_rrt_search_node" output="screen">
+        <param name="eta" value="$(arg Geta)"/>
+        <param name="map_topic" value="/map"/>
+        <param name="robot_leader" value="agent1"/>
+    </node>
+
+     <node pkg="robosar_task_allocator" type="frontier_filter.py" name="frontier_filter" output="screen">
+        <param name="map_topic" value="/map"/>
+        <param name="info_radius" value="0.5"/> 
+        <param name="info_gain_threshold" value="0.3"/> 
+        <param name="costmap_clearing_threshold" value="70"/> <param name="costmap_clearing_threshold" value="70"/> 
+        <param name="cluster_bandwidth" value="0.5"/> 
+        <param name="goals_topic" value="/frontier_rrt_search_node/detected_points"/>
+        <param name="rate" value="0.5"/>
+    </node>
+
+</launch>
