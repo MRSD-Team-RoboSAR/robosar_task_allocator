@@ -168,7 +168,6 @@ void FrontierRRTSearch::pruneRRT()
         char checking = ObstacleFree(x_parent, x_child);
         if (checking == 0)
         {
-            ROS_INFO("Removing %d", j->first);
             to_remove.push_back(j->first);
         }
     }

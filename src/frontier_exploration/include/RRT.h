@@ -53,6 +53,7 @@ public:
         {
             remove_node(child_id);
         }
+        remove_node(id);
     };
 
     std::unordered_map<int, std::shared_ptr<Node>> nodes_;
