@@ -16,6 +16,7 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
     map_sub = nh_.subscribe(map_topic, 100, &FrontierRRTSearch::mapCallBack, this);
     targets_pub = nh_.advertise<geometry_msgs::PointStamped>(ns + "/detected_points", 10);
     marker_pub = nh_.advertise<visualization_msgs::Marker>(ns + "_shapes", 10);
+    rrt_path_service_ = nh_.advertiseService("rrt_path_cost", &FrontierRRTSearch::getPathCost, this);
 }
 
 // Subscribers callback functions---------------------------------------
@@ -23,6 +24,17 @@ void FrontierRRTSearch::mapCallBack(const nav_msgs::OccupancyGrid::ConstPtr &msg
 {
     boost::mutex::scoped_lock(map_mutex_);
     mapData = *msg;
+}
+
+bool FrontierRRTSearch::getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp)
+{
+    std::pair<float, float> robot_pos = std::make_pair(req.robot_x, req.robot_y);
+    std::pair<float, float> goal_pos = std::make_pair(req.goal_x, req.goal_y);
+    int robot_node_id = Nearest(robot_pos);
+    int goal_node_id = Nearest(goal_pos);
+    float cost = rrt_.dijkstra(robot_node_id, goal_node_id);
+    resp.cost = cost;
+    return true;
 }
 
 void FrontierRRTSearch::getRobotLeaderPosition()

@@ -51,6 +51,15 @@ class FrontierAssignmentCommander(TaskCommander):
             output.append(utils.m_to_pixels([i[0], i[1]], scale, origin))
         return np.array(output)
 
+    def rrt_path_cost_client(robot_x, robot_y, goal_x, goal_y):
+        rospy.wait_for_service("rrt_path_cost")
+        try:
+            rrt_path_service = rospy.ServiceProxy("rrt_path_cost", rrt_path_cost)
+            resp1 = rrt_path_service(robot_x, robot_y, goal_x, goal_y)
+            return resp1.cost
+        except rospy.ServiceException as e:
+            print("RRT path service call failed: %s" % e)
+
     def execute(self):
         """
         Uses frontiers as tasks
@@ -103,6 +112,11 @@ class FrontierAssignmentCommander(TaskCommander):
         rospy.loginfo("Starting task allocator")
         while not rospy.is_shutdown():
             robot_pos = self.get_agent_position(tflistener, scale, origin)
+            for rp in robot_pos.values():
+                cost = self.rrt_path_cost_client(
+                    rp[0], rp[1], self.frontiers[0, 0], self.frontiers[0, 1]
+                )
+                print(cost)
             env.update(self.frontiers, robot_pos)
             names, starts, goals = solver.assign()
 
