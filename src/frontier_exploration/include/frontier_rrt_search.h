@@ -35,6 +35,7 @@ protected:
     void getRobotLeaderPosition();
     void publishPoints();
     void initMarkers();
+    void visualizeMarkers();
 
     // Steer function prototype
     std::pair<float, float> Steer(std::pair<float, float> &x_nearest, std::pair<float, float> &x_new, float rez);
@@ -66,7 +67,7 @@ private:
     nav_msgs::OccupancyGrid mapData;
     boost::mutex map_mutex_, rrt_mutex_;
     RRT rrt_;
-    visualization_msgs::Marker marker_points, marker_line;
+    visualization_msgs::Marker marker_points, marker_line, marker_coverage_area;
     visualization_msgs::MarkerArray marker_coverage_area_array;
     float xdim, ydim, resolution, Xstartx, Xstarty, init_map_x, init_map_y;
     float eta, range;

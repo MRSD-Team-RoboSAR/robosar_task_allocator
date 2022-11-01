@@ -179,22 +179,8 @@ void FrontierRRTSearch::pruneRRT()
     {
         rrt_.remove_node(id);
     }
-    // visualization
-    marker_line.points.clear();
-    for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++)
-    {
-        if (j->second->get_parent() == -1)
-            continue;
-        geometry_msgs::Point p;
-        p.x = j->second->get_x();
-        p.y = j->second->get_y();
-        p.z = 0.0;
-        marker_line.points.push_back(p);
-        p.x = rrt_.get_parent_node(j->second)->get_x();
-        p.y = rrt_.get_parent_node(j->second)->get_y();
-        p.z = 0.0;
-        marker_line.points.push_back(p);
-    }
+    
+    visualizeMarkers();
 }
 
 void FrontierRRTSearch::initMarkers()
@@ -232,6 +218,16 @@ void FrontierRRTSearch::initMarkers()
     marker_line.color.a = 1.0;
     marker_points.lifetime = ros::Duration();
     marker_line.lifetime = ros::Duration();
+
+    // marker for coverage area
+    marker_coverage_area = marker_points;
+    marker_coverage_area.type = marker_coverage_area.CYLINDER;
+    marker_coverage_area.color.r = 0.0;
+    marker_coverage_area.color.g = 0.0;
+    marker_coverage_area.color.b = 255.0 / 255.0;
+    marker_coverage_area.color.a = 0.2;
+    marker_coverage_area.scale.z = 0.01;
+
 
     getRobotLeaderPosition();
     ROS_INFO("Received start point.");
@@ -324,7 +320,15 @@ void FrontierRRTSearch::startSearch()
 
         else if (checking == 1)
         {
-            rrt_.add_node(x_new.first, x_new.second, x_nearest_id, 0.0, false);
+            // Get information gain
+            float info_gain_new = informationGain(x_new);
+
+            // Check if new node is a coverage point in is neighbourhood
+            if(isValidCoveragePoint(x_new, info_gain_new)) 
+                rrt_.add_node(x_new.first, x_new.second, x_nearest_id, info_gain_new, true); 
+            else
+                rrt_.add_node(x_new.first, x_new.second, x_nearest_id, info_gain_new, false);
+
             geometry_msgs::Point p;
             p.x = x_new.first;
             p.y = x_new.second;
@@ -336,6 +340,7 @@ void FrontierRRTSearch::startSearch()
             marker_line.points.push_back(p);
         }
 
+        marker_coverage_area_pub.publish(marker_coverage_area_array);
         marker_pub.publish(marker_line);
         prune_counter++;
         rrt_mutex_.unlock();
@@ -453,4 +458,46 @@ float FrontierRRTSearch::informationGain(std::pair<float, float> &x) {
   }
 
    return info_gain_radius_m;
+ }
+
+ void FrontierRRTSearch::visualizeMarkers(void) {
+
+    // visualization
+    marker_line.points.clear();
+    marker_coverage_area_array.markers.clear();
+
+    // Clear old Markers
+    visualization_msgs::Marker delete_all;
+    delete_all.action = visualization_msgs::Marker::DELETEALL;
+    delete_all.id = 0;
+    marker_coverage_area_array.markers.push_back(delete_all);
+    marker_coverage_area_pub.publish(marker_coverage_area_array);
+    marker_coverage_area_array.markers.clear();
+
+    for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++)
+    {
+        if (j->second->get_parent() == -1)
+            continue;
+        geometry_msgs::Point p;
+        p.x = j->second->get_x();
+        p.y = j->second->get_y();
+        p.z = 0.0;
+        marker_line.points.push_back(p);
+
+        if(j->second->is_coverage_node()) {
+            
+            // Create area marker              
+            marker_coverage_area.id += 1;
+            marker_coverage_area.pose.position.x = p.x;
+            marker_coverage_area.pose.position.y = p.y;
+            marker_coverage_area.scale.x = 2 * j->second->get_info_gain_radius();
+            marker_coverage_area.scale.y = 2 * j->second->get_info_gain_radius();
+            marker_coverage_area_array.markers.push_back(marker_coverage_area);
+        }
+
+        p.x = rrt_.get_parent_node(j->second)->get_x();
+        p.y = rrt_.get_parent_node(j->second)->get_y();
+        p.z = 0.0;
+        marker_line.points.push_back(p);
+    }
  }
