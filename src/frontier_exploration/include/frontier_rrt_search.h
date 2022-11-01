@@ -67,7 +67,7 @@ private:
     nav_msgs::OccupancyGrid mapData;
     boost::mutex map_mutex_, rrt_mutex_;
     RRT rrt_;
-    visualization_msgs::Marker marker_points, marker_line, marker_coverage_area;
+    visualization_msgs::Marker marker_points, marker_line, marker_coverage_area, marker_points_coverage;
     visualization_msgs::MarkerArray marker_coverage_area_array;
     float xdim, ydim, resolution, Xstartx, Xstarty, init_map_x, init_map_y;
     float eta, range;

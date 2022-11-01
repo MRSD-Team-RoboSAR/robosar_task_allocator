@@ -219,6 +219,12 @@ void FrontierRRTSearch::initMarkers()
     marker_points.lifetime = ros::Duration();
     marker_line.lifetime = ros::Duration();
 
+    // marker for coverage points
+    marker_points_coverage = marker_points;
+    marker_points_coverage.color.r = 0.0;
+    marker_points_coverage.color.g = 255.0 / 255.0;
+    marker_points_coverage.color.b = 255.0 / 255.0;
+
     // marker for coverage area
     marker_coverage_area = marker_points;
     marker_coverage_area.type = marker_coverage_area.CYLINDER;
@@ -341,6 +347,7 @@ void FrontierRRTSearch::startSearch()
         }
 
         marker_coverage_area_pub.publish(marker_coverage_area_array);
+        marker_pub.publish(marker_points_coverage);
         marker_pub.publish(marker_line);
         prune_counter++;
         rrt_mutex_.unlock();
@@ -464,6 +471,7 @@ float FrontierRRTSearch::informationGain(std::pair<float, float> &x) {
 
     // visualization
     marker_line.points.clear();
+    marker_points_coverage.points.clear();
     marker_coverage_area_array.markers.clear();
 
     // Clear old Markers
@@ -486,6 +494,9 @@ float FrontierRRTSearch::informationGain(std::pair<float, float> &x) {
 
         if(j->second->is_coverage_node()) {
             
+            // Create coverage point marker
+            marker_points_coverage.points.push_back(p);
+
             // Create area marker              
             marker_coverage_area.id += 1;
             marker_coverage_area.pose.position.x = p.x;
