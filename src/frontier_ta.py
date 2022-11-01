@@ -14,6 +14,13 @@ from task_commander import TaskCommander
 from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 
 
+class RobotInfo:
+    def __init__(self, pos=[], n_frontiers=[], costs=[]) -> None:
+        self.pos = pos
+        self.n_frontiers = n_frontiers
+        self.costs = costs
+
+
 class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
@@ -21,11 +28,10 @@ class FrontierAssignmentCommander(TaskCommander):
         self.rate = rospy.Rate(rateHz)
         self.frontiers = []
         self.map_data = None
-        rospy.Subscriber(
-            "/frontier_filter/filtered_frontiers", PointArray, self.frontier_callback
-        )
+        self.robot_info_dict = {}  # type: dict[str, RobotInfo]
 
     def frontier_callback(self, msg):
+        # TODO: add locks or just change to subscribe once per loop
         points = []
         for point in msg.points:
             points.append([point.x, point.y])
@@ -51,14 +57,22 @@ class FrontierAssignmentCommander(TaskCommander):
             output.append(utils.m_to_pixels([i[0], i[1]], scale, origin))
         return np.array(output)
 
-    def rrt_path_cost_client(robot_x, robot_y, goal_x, goal_y):
-        rospy.wait_for_service("rrt_path_cost")
+    def rrt_path_cost_client(self, robot_x, robot_y, goal_x, goal_y):
+        print("calling rrt_path_cost service")
+        rospy.wait_for_service("/frontier_rrt_search_node/rrt_path_cost")
         try:
-            rrt_path_service = rospy.ServiceProxy("rrt_path_cost", rrt_path_cost)
+            rrt_path_service = rospy.ServiceProxy(
+                "/frontier_rrt_search_node/rrt_path_cost", rrt_path_cost
+            )
             resp1 = rrt_path_service(robot_x, robot_y, goal_x, goal_y)
             return resp1.cost
         except rospy.ServiceException as e:
             print("RRT path service call failed: %s" % e)
+
+    def get_n_closest_frontiers(self, n, robot_pos):
+        C = np.linalg.norm(self.frontiers - robot_pos, axis=1)
+        min_node_list = np.argsort(C)
+        return min_node_list[:n]
 
     def execute(self):
         """
@@ -72,9 +86,10 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # Get frontiers
         rospy.loginfo("Waiting for frontiers")
-        while len(self.frontiers) < 1:
-            rospy.sleep(0.1)
-            pass
+        msg = rospy.wait_for_message(
+            "/frontier_filter/filtered_frontiers", PointArray, timeout=None
+        )
+        self.frontier_callback(msg)
 
         # get robot positions
         tflistener = tf.TransformListener()
@@ -86,13 +101,11 @@ class FrontierAssignmentCommander(TaskCommander):
         )
         robot_pos = self.get_agent_position(tflistener, scale, origin)
 
-        # Create env
-        env = UnknownEnvironment(nodes=self.frontiers, scale=scale, origin=origin)
-        for name in self.agent_active_status:
-            env.add_robot(name, robot_pos[name])
-
         # Create TA
-        solver = TA_frontier_greedy(env)
+        for name in self.agent_active_status:
+            robot_info = RobotInfo(pos=robot_pos[name])
+            self.robot_info_dict[name] = robot_info
+        solver = TA_frontier_greedy(self.robot_info_dict)
 
         # plot
         image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
@@ -110,15 +123,34 @@ class FrontierAssignmentCommander(TaskCommander):
         # 2. hungarian assignment
         # 3. mtsp
         rospy.loginfo("Starting task allocator")
+
         while not rospy.is_shutdown():
+            # get frontiers
+            msg = rospy.wait_for_message(
+                "/frontier_filter/filtered_frontiers", PointArray, timeout=5
+            )
+            self.frontier_callback(msg)
+
+            # get costs
             robot_pos = self.get_agent_position(tflistener, scale, origin)
-            for rp in robot_pos.values():
-                cost = self.rrt_path_cost_client(
-                    rp[0], rp[1], self.frontiers[0, 0], self.frontiers[0, 1]
-                )
-                print(cost)
-            env.update(self.frontiers, robot_pos)
-            names, starts, goals = solver.assign()
+            for r, rp in robot_pos.items():
+                # only calculate rrt cost for n euclidean closest frontiers
+                n_frontiers = self.get_n_closest_frontiers(n=5, robot_pos=rp)
+                costs = []
+                for f in n_frontiers:
+                    print("{} to {}".format(rp, self.frontiers[f]))
+                    cost = self.rrt_path_cost_client(
+                        rp[0], rp[1], self.frontiers[0, 0], self.frontiers[0, 1]
+                    )
+                    costs.append(cost)
+                    print(cost)
+                # update robot infos
+                self.robot_info_dict[r].pos = rp
+                self.robot_info_dict[r].n_frontiers = n_frontiers
+                self.robot_info_dict[r].costs = costs
+
+            # get assignment
+            names, starts, goals = solver.assign(self.frontiers)
 
             # publish tasks
             rospy.loginfo("publishing")

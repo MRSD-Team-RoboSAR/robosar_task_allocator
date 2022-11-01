@@ -67,6 +67,27 @@ public:
         return get_node(child->get_parent());
     }
 
+    int nearest(float x, float y)
+    {
+        float min = std::numeric_limits<float>::min();
+        int min_index = -1;
+        float temp;
+        // ROS_INFO("x: %f, y: %f", x, y);
+
+        for (auto j = nodes_.begin(); j != nodes_.end(); j++)
+        {
+            // ROS_INFO("node: %d, x: %f, y: %f", j->second->get_id(), j->second->get_x(), j->second->get_y());
+            temp = Norm(j->second->get_x(), j->second->get_y(), x, y);
+            if (temp <= min)
+            {
+                min = temp;
+                min_index = j->first;
+            }
+        }
+
+        return min_index;
+    }
+
     float dijkstra(int src, int dest)
     {
         using iPair = std::pair<float, int>;
@@ -89,7 +110,7 @@ public:
 
             for (int neighbor : node->get_children())
             {
-                float weight = Norm(node->get_coord(), get_node(neighbor)->get_coord());
+                float weight = Norm(node->get_x(), node->get_y(), get_node(neighbor)->get_x(), get_node(neighbor)->get_y());
                 if (dist[neighbor] > dist[node_id] + weight)
                 {
                     dist[neighbor] = dist[node_id] + weight;
@@ -99,7 +120,7 @@ public:
             if (node->get_parent() != -1)
             {
                 int parent_id = node->get_parent();
-                float weight = Norm(node->get_coord(), get_node(parent_id)->get_coord());
+                float weight = Norm(node->get_x(), node->get_y(), get_node(parent_id)->get_x(), get_node(parent_id)->get_y());
                 if (dist[parent_id] > dist[node_id] + weight)
                 {
                     dist[parent_id] = dist[node_id] + weight;

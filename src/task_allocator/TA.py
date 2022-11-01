@@ -21,7 +21,7 @@ class TA(ABC):
     Task allocation abstract class
     """
 
-    def init(self, env):
+    def init(self, env=None):
         """
         initializes task allocation object
         env: Environment object
@@ -229,42 +229,39 @@ class TA_mTSP(TA):
         return adj_new
 
 
-class TA_frontier_greedy(TA):
+class TA_frontier_greedy:
     """
-    - assign is called at a certain freq
-    - env gives rxn cost matrix
-    - round robin greedy assignment
+    round robin greedy assignment
     """
 
-    def __init__(self, env) -> None:
-        super().init(env)
+    def __init__(self, robot_info_dict):
+        # (dict[str, RobotInfo]) -> None
+        self.robot_info_dict = robot_info_dict
+        self.visited = set()
 
-    def assign(self):
-        self.env.frontier.clear()
+    def assign(self, frontiers):
+        # (None) -> List[str], List[List[float]], List[List[float]]
         names = []
         starts = []
         goals = []
-        for name in self.env.robots.keys():
-            C = self.env.adj[self.env.get_robot_id(name), :]
-            robot = self.env.robots[name]
-            min_node_list = np.argsort(C)
+        self.visited.clear()
+        for name, robot_info in self.robot_info_dict.items():
+            min_node_list = np.argsort(robot_info.costs)
             min_node = -1
             for i in min_node_list:
-                if C[i] > 0 and i not in self.env.frontier:
-                    min_node = i
+                if i not in self.visited:
+                    min_node = robot_info.n_frontiers[i]
+                    self.visited.add(min_node)
                     break
             if min_node == -1:
+                # TODO: add use euclidean distance
                 print("{} unused".format(name))
                 continue
 
             print(
-                "Assigned {}: node {} at {}".format(
-                    name, min_node, self.env.nodes[min_node]
-                )
+                "Assigned {}: node {} at {}".format(name, min_node, frontiers[min_node])
             )
-            robot.next = min_node
-            self.env.frontier.add(min_node)
             names.append(name)
-            starts.append(robot.pos)
-            goals.append(self.env.nodes[min_node])
+            starts.append(robot_info.pos)
+            goals.append(frontiers[min_node])
         return names, starts, goals

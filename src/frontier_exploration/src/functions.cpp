@@ -11,9 +11,9 @@ float rdm::randomize()
 }
 
 // Norm function
-float Norm(std::pair<float, float> x1, std::pair<float, float> x2)
+float Norm(float x1, float y1, float x2, float y2)
 {
-    return pow((pow((x2.first - x1.first), 2) + pow((x2.second - x1.second), 2)), 0.5);
+    return pow((pow((x2 - x1), 2) + pow((y2 - y1), 2)), 0.5);
 }
 
 // sign function

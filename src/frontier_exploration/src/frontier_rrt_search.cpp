@@ -22,18 +22,22 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
 // Subscribers callback functions---------------------------------------
 void FrontierRRTSearch::mapCallBack(const nav_msgs::OccupancyGrid::ConstPtr &msg)
 {
-    boost::mutex::scoped_lock(map_mutex_);
     mapData = *msg;
 }
 
+// Service
 bool FrontierRRTSearch::getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp)
 {
-    std::pair<float, float> robot_pos = std::make_pair(req.robot_x, req.robot_y);
-    std::pair<float, float> goal_pos = std::make_pair(req.goal_x, req.goal_y);
-    int robot_node_id = Nearest(robot_pos);
-    int goal_node_id = Nearest(goal_pos);
+    ROS_INFO("rrt_path_cost request received.");
+    int robot_node_id = rrt_.nearest(req.robot_x, req.robot_y);
+    int goal_node_id = rrt_.nearest(req.goal_x, req.goal_y);
+    if (robot_node_id == -1 || goal_node_id == -1)
+        return false;
+    ROS_INFO("Finding path from %d to %d", robot_node_id, goal_node_id);
     float cost = rrt_.dijkstra(robot_node_id, goal_node_id);
+    ROS_INFO("sending response.");
     resp.cost = cost;
+    resp.cost = 0.0;
     return true;
 }
 
@@ -64,33 +68,12 @@ void FrontierRRTSearch::getRobotLeaderPosition()
     }
 }
 
-// Nearest function
-int FrontierRRTSearch::Nearest(std::pair<float, float> &x)
-{
-
-    float min = Norm(rrt_.get_node(0)->get_coord(), x);
-    int min_index;
-    float temp;
-
-    for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++)
-    {
-        temp = Norm(j->second->get_coord(), x);
-        if (temp <= min)
-        {
-            min = temp;
-            min_index = j->first;
-        }
-    }
-
-    return min_index;
-}
-
 // Steer function
 std::pair<float, float> FrontierRRTSearch::Steer(std::pair<float, float> &x_nearest, std::pair<float, float> &x_rand, float eta)
 {
     std::pair<float, float> x_new;
 
-    if (Norm(x_nearest, x_rand) <= eta)
+    if (Norm(x_nearest.first, x_nearest.second, x_rand.first, x_rand.second) <= eta)
     {
         x_new = x_rand;
     }
@@ -138,7 +121,7 @@ int FrontierRRTSearch::gridValue(std::pair<float, float> &Xp)
 char FrontierRRTSearch::ObstacleFree(std::pair<float, float> &xnear, std::pair<float, float> &xnew)
 {
     float rez = float(mapData.info.resolution) * .2;
-    float stepz = int(ceil(Norm(xnew, xnear)) / rez);
+    float stepz = int(ceil(Norm(xnew.first, xnew.second, xnear.first, xnear.second)) / rez);
     std::pair<float, float> xi = xnear;
     char obs = 0;
     char unk = 0;
@@ -276,14 +259,13 @@ void FrontierRRTSearch::startSearch()
 
     // Main loop
     ROS_INFO("Starting RRT");
-    ros::Rate rate(100);
+    ros::Rate rate(10);
     geometry_msgs::PointStamped exploration_goal;
 
     int prune_counter = 0;
 
     while (ros::ok())
     {
-        boost::mutex::scoped_lock(map_mutex_);
         if (prune_counter == 500)
         {
             pruneRRT();
@@ -300,7 +282,9 @@ void FrontierRRTSearch::startSearch()
         x_rand = {xr, yr};
 
         // Nearest
-        int x_nearest_id = Nearest(x_rand);
+        int x_nearest_id = rrt_.nearest(x_rand.first, x_rand.second);
+        if (x_nearest_id == -1)
+            continue;
         x_nearest = rrt_.get_node(x_nearest_id)->get_coord();
 
         // Steer

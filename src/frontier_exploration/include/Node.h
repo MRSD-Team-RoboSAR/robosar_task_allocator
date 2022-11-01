@@ -8,8 +8,9 @@ class Node
 public:
     Node(float x, float y, int id, int parent_id) : x_(x), y_(y), id_(id), parent_(parent_id){};
     ~Node(){};
-    float get_x() { return x_; };
-    float get_y() { return y_; };
+    float get_x() { return x_; }
+    float get_y() { return y_; }
+    int get_id() { return id_; }
     std::pair<float, float> get_coord() { return std::make_pair(x_, y_); }
     void add_child(int child)
     {

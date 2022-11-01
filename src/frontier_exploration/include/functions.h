@@ -21,7 +21,7 @@ public:
 };
 
 // Norm function prototype
-float Norm(std::pair<float, float>, std::pair<float, float>);
+float Norm(float x1, float y1, float x2, float y2);
 
 // sign function prototype
 float sign(float);

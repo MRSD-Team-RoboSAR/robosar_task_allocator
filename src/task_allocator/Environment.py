@@ -120,8 +120,6 @@ class UnknownEnvironment(Environment):
         Takes in frontier nodes and list of robots
         """
         super().__init__(nodes=nodes, robots=robots)
-        self.scale = scale
-        self.origin = origin
 
     def add_robot(self, name, start):
         """
@@ -144,8 +142,8 @@ class UnknownEnvironment(Environment):
     def euclidean(self, x1, x2):
         return np.linalg.norm(x1 - x2)
 
-    def update(self, nodes, robots_pos):
+    def update(self, nodes, robot_info_dict):
         self.nodes = nodes
-        for name, pos in robots_pos.items():
-            self.robots[name].pos = pos
+        for name, robot_info in robot_info_dict.items():
+            self.robots[name].pos = robot_info.pos
         self.calculate_cost()
