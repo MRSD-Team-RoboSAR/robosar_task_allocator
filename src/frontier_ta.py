@@ -95,13 +95,14 @@ class FrontierAssignmentCommander(TaskCommander):
         return p
 
     def reassign(self, solver):
+        print("Reassigning")
         # get frontiers
         try:
             msg = rospy.wait_for_message(
                 "/frontier_filter/filtered_frontiers", PointArray, timeout=5
             )
         except:
-            print("no frontiers received.")
+            print("no frontier messages received.")
             return False
         self.frontier_callback(msg)
 
@@ -236,6 +237,11 @@ class FrontierAssignmentCommander(TaskCommander):
         # 3. mtsp
         rospy.loginfo("Starting task allocator")
 
+        for name in self.agent_active_status:
+            listener.setBusyStatus(name)
+        self.reassign(solver)
+        self.timer_flag = False
+
         while not rospy.is_shutdown():
             if len(self.frontiers) == 0:
                 rospy.loginfo("No more frontiers. Exiting.")
@@ -246,7 +252,7 @@ class FrontierAssignmentCommander(TaskCommander):
                 # TODO: change so that only one robot is reassigned when reached
                 agent_reached = listener.getStatus(name)
                 if agent_reached == 2:
-                    print("agent {} reached".format(name))
+                    # print("agent {} reached".format(name))
                     break
 
             if self.timer_flag:

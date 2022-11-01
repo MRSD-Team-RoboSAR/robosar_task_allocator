@@ -203,7 +203,9 @@ class TA_mTSP(TA):
         tours = mTSP_utils.solve(data, self.timeout)
 
         if not initial:
-            self.tours = [[to_visit[i] for i in tour] for tour in tours]
+            self.tours = [
+                [to_visit[tour[i]] for i in range(1, len(tour))] for tour in tours
+            ]
             for name, robot in self.env.robots.items():
                 if len(self.tours[self.env.get_robot_id(name)]) > 1:
                     robot.done = False

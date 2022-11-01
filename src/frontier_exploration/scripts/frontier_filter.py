@@ -114,17 +114,17 @@ class FrontierFilter:
             with self.map_lock and self.frontier_lock:
                 centroids = []
                 possible_frontiers = []
-                # Filter out received frontiers by information gain
+                # Add received frontiers
                 for f in self.received_frontiers:
                     possible_frontiers.append(f)
 
                 # Filter out previous centroids by information gain
-                for f in self.filtered_frontiers:
-                    info_gain = informationGain(
-                        self.mapData, [f[0], f[1]], self.info_radius
-                    )
-                    if info_gain > self.info_threshold:
-                        possible_frontiers.append(f)
+                # for f in self.filtered_frontiers:
+                #     info_gain = informationGain(
+                #         self.mapData, [f[0], f[1]], self.info_radius
+                #     )
+                #     if info_gain > self.info_threshold:
+                #         possible_frontiers.append(f)
 
                 # Clustering frontier points
                 if len(possible_frontiers) > 1:
@@ -136,7 +136,7 @@ class FrontierFilter:
                 if len(possible_frontiers) == 1:
                     centroids = possible_frontiers
 
-                # make sure centroid is not occupied
+                # make sure centroid is not occupied, filter out by information gain
                 centroids_filtered = []
                 for c in centroids:
                     centroid_point.point.x = c[0]
@@ -150,7 +150,7 @@ class FrontierFilter:
                         > 0.15
                     ):
                         centroids_filtered.append(c)
-                self.filtered_frontiers = copy(centroids_filtered)
+                # self.filtered_frontiers = copy(centroids_filtered)
 
                 # publishing
                 arraypoints.points = []
