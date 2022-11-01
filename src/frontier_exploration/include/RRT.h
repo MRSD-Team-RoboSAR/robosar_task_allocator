@@ -25,9 +25,10 @@ public:
         return nodes_[id];
     }
 
-    void add_node(float x, float y, int parent)
+    void add_node(float x, float y, int parent, float info_gain_radius, bool is_coverage_node)
     {
-        nodes_[next_id_] = std::make_shared<Node>(x, y, next_id_, parent);
+        nodes_[next_id_] = std::make_shared<Node>(x, y, next_id_, 
+                                    parent, info_gain_radius, is_coverage_node);
         auto parent_node = get_node(parent);
         if (parent_node)
             parent_node->add_child(next_id_);

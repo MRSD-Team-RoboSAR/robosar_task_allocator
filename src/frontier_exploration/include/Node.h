@@ -6,11 +6,16 @@
 class Node
 {
 public:
-    Node(float x, float y, int id, int parent_id) : x_(x), y_(y), id_(id), parent_(parent_id){};
+    Node(float x, float y, int id, int parent_id, float info_gain_radius, bool is_coverage_node) : 
+        x_(x), y_(y), id_(id), parent_(parent_id), info_gain_radius_(info_gain_radius), is_coverage_node_(is_coverage_node){};
+
     ~Node(){};
     float get_x() { return x_; }
     float get_y() { return y_; }
     int get_id() { return id_; }
+    float get_info_gain_radius() { return info_gain_radius_; };
+    bool is_coverage_node() { return is_coverage_node_; };
+    void set_non_coverage_node() { is_coverage_node_ = false; };
     std::pair<float, float> get_coord() { return std::make_pair(x_, y_); }
     void add_child(int child)
     {
@@ -29,6 +34,8 @@ public:
     int get_parent() { return parent_; }
 
 private:
+    bool is_coverage_node_;
+    float info_gain_radius_;
     float x_;
     float y_;
     int id_;

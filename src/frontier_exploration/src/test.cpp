@@ -5,14 +5,14 @@
 int main(int argc, char **argv)
 {
     RRT rrt = RRT();
-    rrt.add_node(0.0, 0.0, -1); // 0
-    rrt.add_node(0.0, 1.0, 0);  // 1
-    rrt.add_node(1.0, 1.0, 0);  // 2
-    rrt.add_node(2.0, 1.0, 1);  // 3
-    rrt.add_node(0.0, 2.0, 1);  // 4
-    rrt.add_node(3.0, 2.0, 3);  // 5
-    rrt.add_node(2.0, 3.0, 4);  // 6
-    rrt.add_node(3.0, 3.0, 2);  // 7
+    rrt.add_node(0.0, 0.0, -1, 0.0,false); // 0
+    rrt.add_node(0.0, 1.0, 0, 0.0,false);  // 1
+    rrt.add_node(1.0, 1.0, 0, 0.0, false);  // 2
+    rrt.add_node(2.0, 1.0, 1, 0.0, false);  // 3
+    rrt.add_node(0.0, 2.0, 1, 0.0, false);  // 4
+    rrt.add_node(3.0, 2.0, 3 , 0.0, false);  // 5
+    rrt.add_node(2.0, 3.0, 4, 0.0, false);  // 6
+    rrt.add_node(3.0, 3.0, 2, 0.0, false);  // 7
 
     int robot_node_id = rrt.nearest(2.0, 1.0);
     int goal_node_id = rrt.nearest(2.0, 3.0);

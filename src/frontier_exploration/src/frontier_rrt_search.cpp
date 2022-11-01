@@ -248,7 +248,7 @@ void FrontierRRTSearch::startSearch()
     initMarkers();
     geometry_msgs::Point trans;
     trans = marker_points.points[0];
-    rrt_.add_node(trans.x, trans.y, -1);
+    rrt_.add_node(trans.x, trans.y, -1, 0.0, false);
 
     marker_points.points.clear();
     marker_pub.publish(marker_points);
@@ -315,7 +315,7 @@ void FrontierRRTSearch::startSearch()
 
         else if (checking == 1)
         {
-            rrt_.add_node(x_new.first, x_new.second, x_nearest_id);
+            rrt_.add_node(x_new.first, x_new.second, x_nearest_id, 0.0, false);
             geometry_msgs::Point p;
             p.x = x_new.first;
             p.y = x_new.second;
