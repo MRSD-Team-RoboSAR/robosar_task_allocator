@@ -83,10 +83,21 @@ class FrontierAssignmentCommander(TaskCommander):
         except rospy.ServiceException as e:
             print("RRT path service call failed: %s" % e)
 
+    def is_valid_frontier(self, node):
+        if node[0] > -2.0 and node[0] < 12.0 and node[1] > -12.0 and node[1] < 2.0:
+            return True
+        return False
+
     def get_n_closest_frontiers(self, n, robot_pos):
         C = np.linalg.norm(self.frontiers - robot_pos, axis=1)
-        min_node_list = np.argsort(C)
-        return min_node_list[:n]
+        idx = np.argsort(C)
+        min_node_list = []
+        for i in idx:
+            if self.is_valid_frontier(self.frontiers[i]):
+                min_node_list.append(i)
+            if len(min_node_list) >= n:
+                return min_node_list
+        return min_node_list
 
     def utility_discount_fn(self, dist):
         p = 0.0
@@ -230,7 +241,7 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # every time robot reaches a frontier, or every 5 seconds, reassign
         # get robot positions, updates env
-        # cost: astar path, utility: based on paper below
+        # cost: rrt path, utility: based on paper below
         # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=1435481&tag=1
         # 1. greedy assignment
         # 2. hungarian assignment
