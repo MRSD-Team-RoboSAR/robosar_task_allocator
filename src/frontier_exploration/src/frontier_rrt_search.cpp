@@ -7,9 +7,9 @@
 #include "frontier_rrt_search.h"
 
 // Coverage planner parameters
-#define MIN_INFO_GAIN_RADIUS_M 0.5
-#define PERCENT_COVERAGE_OVERLAP 100 // TODO
-#define MAX_INFO_GAIN_RADIUS_M 5.0 // Should reflect sensor model
+#define COV_MIN_INFO_GAIN_RADIUS_M 0.5
+#define COV_PERCENT_COVERAGE_OVERLAP 100 // TODO
+#define COV_MAX_INFO_GAIN_RADIUS_M 5.0 // Should reflect sensor model
 std::vector<std::vector<int>> bfs_prop_model = {{-1 , 0}, {0 , -1}, {0 , 1}, {1 , 0}};
 
 
@@ -346,13 +346,24 @@ void FrontierRRTSearch::startSearch()
 }
 
 bool FrontierRRTSearch::isValidCoveragePoint(std::pair<float, float> x_new, float info_radius ) {    
+    
+    // Local variables
     bool valid_node = true;
     std::vector<int> to_remove;
-    if(info_radius < MIN_INFO_GAIN_RADIUS_M) {
+
+    // parameter check
+    if(info_radius < COV_MIN_INFO_GAIN_RADIUS_M) {
         return false;
     }
 
     for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++) {
+
+        // eliminate node which is more than 2*info_radius away from x_new
+        float max_info_radius = std::max(info_radius, j->second->get_info_gain_radius());
+        if(fabs(x_new.first-j->second->get_coord().first) > 2*max_info_radius 
+            || fabs(x_new.second-j->second->get_coord().second) > 2*max_info_radius) {
+            continue;
+        }
 
         // TODO should we check if it is a coverage node?
         float inter_node_dist = Norm(j->second->get_coord().first, j->second->get_coord().second,
@@ -391,8 +402,6 @@ float FrontierRRTSearch::informationGain(std::pair<float, float> &x) {
   // Local variables
   std::queue<std::pair<int,int>> queue;
   std::set<int> visited;
-  int grids_explored = 0;
-  int obstacle_count = 0;
 
   //Convert to pixel and add it to queue
   std::pair<int,int> start_ind = std::make_pair((int)((x.first-mapData.info.origin.position.x)/mapData.info.resolution), 
@@ -420,7 +429,7 @@ float FrontierRRTSearch::informationGain(std::pair<float, float> &x) {
     if(dist > info_gain_radius_m) {
       info_gain_radius_m = dist;
     }
-    if(dist > MAX_INFO_GAIN_RADIUS_M) {
+    if(dist > COV_MAX_INFO_GAIN_RADIUS_M) {
       //ROS_INFO("Outside radius. Exiting obstacle search");
       end_of_bfs = true;
     }
