@@ -242,14 +242,17 @@ class FrontierAssignmentCommander(TaskCommander):
         self.reassign(solver)
         self.timer_flag = False
 
+        no_frontiers_count = 0
         while not rospy.is_shutdown():
             if len(self.frontiers) == 0:
-                rospy.loginfo("No more frontiers. Exiting.")
-                break
+                no_frontiers_count += 1
+                if no_frontiers_count > 20:
+                    rospy.loginfo("No more frontiers. Exiting.")
+                    break
 
+            no_frontiers_count = 0
             agent_reached = 0
             for name in self.agent_active_status:
-                # TODO: change so that only one robot is reassigned when reached
                 agent_reached = listener.getStatus(name)
                 if agent_reached == 2:
                     # print("agent {} reached".format(name))

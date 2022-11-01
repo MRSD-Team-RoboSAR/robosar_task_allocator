@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 # import mTSP_utils
 import numpy as np
+from scipy.optimize import linear_sum_assignment
 
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
@@ -269,3 +270,16 @@ class TA_frontier_greedy(TA):
         )
 
         return min_node
+
+
+class TA_frontier_hungarian(TA):
+    """
+    Hungarian assignment
+    """
+
+    def __init__(self, env) -> None:
+        super().init(env)
+
+    def assign(self, cost_matrix, node_ids):
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        return node_ids[col_ind]
