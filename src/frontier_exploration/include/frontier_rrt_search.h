@@ -20,6 +20,7 @@
 #include "geometry_msgs/Point.h"
 #include "visualization_msgs/Marker.h"
 // #include "robosar_messages/rrt_path_cost.h"
+#include "visualization_msgs/MarkerArray.h"
 
 class FrontierRRTSearch
 {
@@ -49,10 +50,14 @@ protected:
     // bool getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp);
 
 private:
+    bool isValidCoveragePoint(std::pair<float, float> x_new, float info_radius);
+    float informationGain(std::pair<float, float> &x);
+
     ros::NodeHandle &nh_;
     ros::Subscriber map_sub;
     ros::Publisher targets_pub;
     ros::Publisher marker_pub;
+    ros::Publisher marker_coverage_area_pub;
     ros::Timer pub_timer;
     ros::ServiceServer rrt_path_service_;
 
@@ -62,6 +67,7 @@ private:
     boost::mutex map_mutex_, rrt_mutex_;
     RRT rrt_;
     visualization_msgs::Marker marker_points, marker_line;
+    visualization_msgs::MarkerArray marker_coverage_area_array;
     float xdim, ydim, resolution, Xstartx, Xstarty, init_map_x, init_map_y;
     float eta, range;
     std::string map_topic, base_frame_topic;

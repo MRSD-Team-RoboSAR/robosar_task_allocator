@@ -2,8 +2,16 @@
 #include <tf/tf.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <queue>
 
 #include "frontier_rrt_search.h"
+
+// Coverage planner parameters
+#define MIN_INFO_GAIN_RADIUS_M 0.5
+#define PERCENT_COVERAGE_OVERLAP 100 // TODO
+#define MAX_INFO_GAIN_RADIUS_M 5.0 // Should reflect sensor model
+std::vector<std::vector<int>> bfs_prop_model = {{-1 , 0}, {0 , -1}, {0 , 1}, {1 , 0}};
+
 
 FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
 {
@@ -16,6 +24,7 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
     map_sub = nh_.subscribe(map_topic, 100, &FrontierRRTSearch::mapCallBack, this);
     targets_pub = nh_.advertise<geometry_msgs::PointStamped>(ns + "/detected_points", 10);
     marker_pub = nh_.advertise<visualization_msgs::Marker>(ns + "_shapes", 10);
+    marker_coverage_area_pub = nh_.advertise<visualization_msgs::MarkerArray>(ns + "_coverage_area", 10);
     //rrt_path_service_ = nh_.advertiseService("rrt_path_cost", &FrontierRRTSearch::getPathCost, this);
 }
 
@@ -335,3 +344,104 @@ void FrontierRRTSearch::startSearch()
         rate.sleep();
     }
 }
+
+bool FrontierRRTSearch::isValidCoveragePoint(std::pair<float, float> x_new, float info_radius ) {    
+    bool valid_node = true;
+    std::vector<int> to_remove;
+    if(info_radius < MIN_INFO_GAIN_RADIUS_M) {
+        return false;
+    }
+
+    for (auto j = rrt_.nodes_.begin(); j != rrt_.nodes_.end(); j++) {
+
+        // TODO should we check if it is a coverage node?
+        float inter_node_dist = Norm(j->second->get_coord().first, j->second->get_coord().second,
+                                        x_new.first, x_new.second); 
+        // If there is an overlap (either of the centers is inside the other circle)
+        // keep the node with the largest radius
+        // TODO can control per cent overlap
+        if((info_radius > inter_node_dist || j->second->get_info_gain_radius() > inter_node_dist)) {
+            if(info_radius < j->second->get_info_gain_radius()) {
+
+                std::cout<<j->second->get_info_gain_radius()<<" "<<info_radius<<std::endl;
+                valid_node = false;
+                break;
+            }
+            else {
+                to_remove.push_back(j->first);
+            }
+        }
+    }
+
+    if(valid_node) {
+        for (int id : to_remove) {
+            rrt_.get_node(id)->set_non_coverage_node();
+        }
+    }
+    return valid_node;
+}
+
+float FrontierRRTSearch::informationGain(std::pair<float, float> &x) {
+  
+  // Local variables
+  float info_gain_radius_m = 0.0;
+  bool end_of_bfs = false;
+  // BFS around this point to find distance to nearest obstacle
+
+  // Local variables
+  std::queue<std::pair<int,int>> queue;
+  std::set<int> visited;
+  int grids_explored = 0;
+  int obstacle_count = 0;
+
+  //Convert to pixel and add it to queue
+  std::pair<int,int> start_ind = std::make_pair((int)((x.first-mapData.info.origin.position.x)/mapData.info.resolution), 
+                                                (int)((x.second-mapData.info.origin.position.y)/mapData.info.resolution));
+  queue.push(start_ind);
+  
+  while(!queue.empty()&& !end_of_bfs) {
+    std::pair<int,int> current = queue.front();
+    queue.pop();
+
+    //if already visited, continue to next iteration
+    if(visited.find((current.first + current.second*mapData.info.width)) != visited.end()) 
+      continue;
+    // insert into visited
+    else
+      visited.insert(current.first + current.second*mapData.info.width);
+
+    // Check if reached end of BFS radius
+    //convert to world coordinates
+    std::pair<float,float> current_position = std::make_pair(mapData.info.origin.position.x + mapData.info.resolution*(float)(current.first), 
+                                  mapData.info.origin.position.y + mapData.info.resolution*(float)(current.second));
+
+    float dist = Norm(current_position.first,current_position.second, 
+                        x.first,x.second);
+    if(dist > info_gain_radius_m) {
+      info_gain_radius_m = dist;
+    }
+    if(dist > MAX_INFO_GAIN_RADIUS_M) {
+      //ROS_INFO("Outside radius. Exiting obstacle search");
+      end_of_bfs = true;
+    }
+
+    // Check if obstacle
+    if(gridValue(current_position) == 100 || gridValue(current_position) == -1) {
+      end_of_bfs = true;
+    }
+
+    //expand node
+    for(const auto& dir : bfs_prop_model) {
+      std::pair<int,int> neighbour_ind = std::make_pair(current.first + dir[0], current.second + dir[1]);
+      //Boundary checks
+      if (neighbour_ind.first >= 0 && neighbour_ind.first < mapData.info.width && 
+          neighbour_ind.second >= 0 && neighbour_ind.second < mapData.info.height ) {
+            queue.push(neighbour_ind);
+      }
+      else
+        end_of_bfs = true;
+    }
+  }
+
+   return info_gain_radius_m;
+ }
