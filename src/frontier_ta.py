@@ -105,6 +105,10 @@ class FrontierAssignmentCommander(TaskCommander):
             return False
         self.frontier_callback(msg)
 
+        if len(self.frontiers) == 0:
+            print("no frontiers received.")
+            return False
+
         # get costs
         robot_pos = self.get_agent_position()
         for r, rp in robot_pos.items():
@@ -139,38 +143,40 @@ class FrontierAssignmentCommander(TaskCommander):
                 # update utility
                 self.env.update_utility(goal, self.utility_discount_fn)
 
-        # publish tasks
-        rospy.loginfo("publishing")
-        task_msg = task_allocation()
-        task_msg.id = [n for n in names]
-        task_msg.startx = [s[0] for s in starts]
-        task_msg.starty = [s[1] for s in starts]
-        task_msg.goalx = [g[0] for g in goals]
-        task_msg.goaly = [g[1] for g in goals]
-        while self.task_pub.get_num_connections() == 0:
-            rospy.loginfo("Waiting for subscriber to task topic:")
-            rospy.sleep(1)
-        self.task_pub.publish(task_msg)
+        if len(names) > 0:
+            # publish tasks
+            rospy.loginfo("publishing")
+            task_msg = task_allocation()
+            task_msg.id = [n for n in names]
+            task_msg.startx = [s[0] for s in starts]
+            task_msg.starty = [s[1] for s in starts]
+            task_msg.goalx = [g[0] for g in goals]
+            task_msg.goaly = [g[1] for g in goals]
+            while self.task_pub.get_num_connections() == 0:
+                rospy.loginfo("Waiting for subscriber to task topic:")
+                rospy.sleep(1)
+            self.task_pub.publish(task_msg)
 
-        # plot
-        plt.clf()
-        _, self.map_data, scale, origin = self.get_map_info()
-        utils.plot_pgm_data(self.map_data)
-        pix_frontier = self.arr_m_to_pixels(self.frontiers, scale, origin)
-        plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
-        for i in range(len(names)):
-            pix_rob = utils.m_to_pixels(starts[i], scale, origin)
-            pix_goal = utils.m_to_pixels(goals[i], scale, origin)
-            plt.plot(pix_rob[0], pix_rob[1], "ko", zorder=100)
-            plt.plot(
-                [pix_rob[0], pix_goal[0]],
-                [pix_rob[1], pix_goal[1]],
-                "k-",
-                zorder=90,
-            )
-        self.publish_image(self.image_pub)
+            # plot
+            plt.clf()
+            _, self.map_data, scale, origin = self.get_map_info()
+            utils.plot_pgm_data(self.map_data)
+            pix_frontier = self.arr_m_to_pixels(self.frontiers, scale, origin)
+            plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
+            for i in range(len(names)):
+                pix_rob = utils.m_to_pixels(starts[i], scale, origin)
+                pix_goal = utils.m_to_pixels(goals[i], scale, origin)
+                plt.plot(pix_rob[0], pix_rob[1], "ko", zorder=100)
+                plt.plot(
+                    [pix_rob[0], pix_goal[0]],
+                    [pix_rob[1], pix_goal[1]],
+                    "k-",
+                    zorder=90,
+                )
+            self.publish_image(self.image_pub)
+            return True
 
-        return True
+        return False
 
     def execute(self):
         """

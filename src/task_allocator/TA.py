@@ -229,14 +229,14 @@ class TA_mTSP(TA):
         return adj_new
 
 
-class TA_frontier_greedy:
+class TA_frontier_greedy(TA):
     """
     round robin greedy assignment
     """
 
     def __init__(self, env, beta):
         # (dict[str, RobotInfo]) -> None
-        self.env = env
+        super().init(env)
         self.beta = beta
         self.utility = self.env.utility
         self.robot_info_dict = env.robot_info_dict
@@ -258,7 +258,7 @@ class TA_frontier_greedy:
         if min_node == -1:
             # TODO: add use euclidean distance
             print("{} unused".format(name))
-            return "", [], []
+            return min_node
 
         print(
             "Assigned {}: node {} at {}".format(
