@@ -94,6 +94,11 @@ class FrontierFilter:
 
         return points_clust
 
+    def is_valid_frontier(self, node):
+        if node[0] > -0.5 and node[0] < 12.0 and node[1] > -10.0 and node[1] < 2.0:
+            return True
+        return False
+
     def filter(self):
         # wait if no frontier is received yet
         rospy.loginfo("Waiting for frontiers")
@@ -148,6 +153,7 @@ class FrontierFilter:
                             self.mapData, [x[0], x[1]], self.info_radius
                         )
                         > 0.15
+                        and self.is_valid_frontier(x)
                     ):
                         centroids_filtered.append(c)
                 # self.filtered_frontiers = copy(centroids_filtered)

@@ -83,21 +83,10 @@ class FrontierAssignmentCommander(TaskCommander):
         except rospy.ServiceException as e:
             print("RRT path service call failed: %s" % e)
 
-    def is_valid_frontier(self, node):
-        if node[0] > -2.0 and node[0] < 12.0 and node[1] > -12.0 and node[1] < 2.0:
-            return True
-        return False
-
     def get_n_closest_frontiers(self, n, robot_pos):
         C = np.linalg.norm(self.frontiers - robot_pos, axis=1)
-        idx = np.argsort(C)
-        min_node_list = []
-        for i in idx:
-            if self.is_valid_frontier(self.frontiers[i]):
-                min_node_list.append(i)
-            if len(min_node_list) >= n:
-                return min_node_list
-        return min_node_list
+        min_node_list = np.argsort(C)
+        return min_node_list[:n]
 
     def utility_discount_fn(self, dist):
         p = 0.0
