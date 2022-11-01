@@ -16,7 +16,7 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
     map_sub = nh_.subscribe(map_topic, 100, &FrontierRRTSearch::mapCallBack, this);
     targets_pub = nh_.advertise<geometry_msgs::PointStamped>(ns + "/detected_points", 10);
     marker_pub = nh_.advertise<visualization_msgs::Marker>(ns + "_shapes", 10);
-    rrt_path_service_ = nh_.advertiseService("rrt_path_cost", &FrontierRRTSearch::getPathCost, this);
+    //rrt_path_service_ = nh_.advertiseService("rrt_path_cost", &FrontierRRTSearch::getPathCost, this);
 }
 
 // Subscribers callback functions---------------------------------------
@@ -26,20 +26,20 @@ void FrontierRRTSearch::mapCallBack(const nav_msgs::OccupancyGrid::ConstPtr &msg
 }
 
 // Service
-bool FrontierRRTSearch::getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp)
-{
-    boost::mutex::scoped_lock(rrt_mutex_);
-    ROS_INFO("rrt_path_cost request received.");
-    int robot_node_id = rrt_.nearest(req.robot_x, req.robot_y);
-    int goal_node_id = rrt_.nearest(req.goal_x, req.goal_y);
-    if (robot_node_id == -1 || goal_node_id == -1)
-        return false;
-    ROS_INFO("Finding path from %d to %d", robot_node_id, goal_node_id);
-    float cost = rrt_.dijkstra(robot_node_id, goal_node_id);
-    ROS_INFO("sending response.");
-    resp.cost = cost;
-    return true;
-}
+// bool FrontierRRTSearch::getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp)
+// {
+//     boost::mutex::scoped_lock(rrt_mutex_);
+//     ROS_INFO("rrt_path_cost request received.");
+//     int robot_node_id = rrt_.nearest(req.robot_x, req.robot_y);
+//     int goal_node_id = rrt_.nearest(req.goal_x, req.goal_y);
+//     if (robot_node_id == -1 || goal_node_id == -1)
+//         return false;
+//     ROS_INFO("Finding path from %d to %d", robot_node_id, goal_node_id);
+//     float cost = rrt_.dijkstra(robot_node_id, goal_node_id);
+//     ROS_INFO("sending response.");
+//     resp.cost = cost;
+//     return true;
+// }
 
 void FrontierRRTSearch::getRobotLeaderPosition()
 {

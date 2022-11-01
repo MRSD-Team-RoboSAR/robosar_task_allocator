@@ -19,7 +19,7 @@
 #include "nav_msgs/MapMetaData.h"
 #include "geometry_msgs/Point.h"
 #include "visualization_msgs/Marker.h"
-#include "robosar_messages/rrt_path_cost.h"
+// #include "robosar_messages/rrt_path_cost.h"
 
 class FrontierRRTSearch
 {
@@ -46,7 +46,7 @@ protected:
 
     void pruneRRT();
 
-    bool getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp);
+    // bool getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp);
 
 private:
     ros::NodeHandle &nh_;
