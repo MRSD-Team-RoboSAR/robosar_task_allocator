@@ -16,19 +16,31 @@ from task_transmitter.task_listener_robosar_control import TaskListenerRobosarCo
 
 class RobotInfo:
     def __init__(self, pos=[], n_frontiers=[], costs=[]) -> None:
+        self.name = ""
         self.pos = pos
         self.n_frontiers = n_frontiers
         self.costs = costs
+        self.utility = []
 
 
 class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
-        rateHz = rospy.get_param("~rate", 1.0 / 10)
-        self.rate = rospy.Rate(rateHz)
+        reassign_period = rospy.get_param("~reassign_period", 10.0)
+        self.max_range = rospy.get_param("~discount_range", 3.0)
+        self.beta = rospy.get_param("~beta", 2.0)
+        timer = rospy.Timer(rospy.Duration(reassign_period), self.timer_flag_callback)
+        self.rate = rospy.Rate(0.5)
+        self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
+        self.tflistener = tf.TransformListener()
+        self.timer_flag = False
         self.frontiers = []
         self.map_data = None
         self.robot_info_dict = {}  # type: dict[str, RobotInfo]
+        self.env = None  # type: UnknownEnvironment
+
+    def timer_flag_callback(self, event=None):
+        self.timer_flag = True
 
     def frontier_callback(self, msg):
         # TODO: add locks or just change to subscribe once per loop
@@ -37,17 +49,19 @@ class FrontierAssignmentCommander(TaskCommander):
             points.append([point.x, point.y])
         self.frontiers = np.array(points)
 
-    def get_agent_position(self, listener, scale, origin):
+    def get_agent_position(self):
         """
         Get robot positions
         """
         robot_pos = {}
         for name in self.agent_active_status:
             now = rospy.Time.now()
-            listener.waitForTransform(
+            self.tflistener.waitForTransform(
                 "map", name + "/base_link", now, rospy.Duration(1.0)
             )
-            (trans, rot) = listener.lookupTransform("map", name + "/base_link", now)
+            (trans, rot) = self.tflistener.lookupTransform(
+                "map", name + "/base_link", now
+            )
             robot_pos[name] = [trans[0], trans[1]]
         return robot_pos
 
@@ -74,6 +88,90 @@ class FrontierAssignmentCommander(TaskCommander):
         min_node_list = np.argsort(C)
         return min_node_list[:n]
 
+    def utility_discount_fn(self, dist):
+        p = 0.0
+        if dist < self.max_range:
+            p = 1.0 - (dist / self.max_range)
+        return p
+
+    def reassign(self, solver):
+        # get frontiers
+        try:
+            msg = rospy.wait_for_message(
+                "/frontier_filter/filtered_frontiers", PointArray, timeout=5
+            )
+        except:
+            print("no frontiers received.")
+            return False
+        self.frontier_callback(msg)
+
+        # get costs
+        robot_pos = self.get_agent_position()
+        for r, rp in robot_pos.items():
+            # only calculate rrt cost for n euclidean closest frontiers
+            n_frontiers = self.get_n_closest_frontiers(n=5, robot_pos=rp)
+            costs = []
+            for f in n_frontiers:
+                # cost = self.rrt_path_cost_client(
+                #     rp[0], rp[1], self.frontiers[f, 0], self.frontiers[f, 1]
+                # )
+                cost = np.linalg.norm(rp - self.frontiers[f])
+                costs.append(cost)
+            # update robot infos
+            self.robot_info_dict[r].name = r
+            self.robot_info_dict[r].pos = rp
+            self.robot_info_dict[r].n_frontiers = n_frontiers
+            self.robot_info_dict[r].costs = costs
+
+        # update env
+        self.env.update(self.frontiers, self.robot_info_dict)
+
+        # get assignment
+        names = []
+        starts = []
+        goals = []
+        for name in self.agent_active_status:
+            goal = solver.assign(name)
+            if goal != -1:
+                names.append(name)
+                starts.append(robot_pos[name])
+                goals.append(self.frontiers[goal])
+                # update utility
+                self.env.update_utility(goal, self.utility_discount_fn)
+
+        # publish tasks
+        rospy.loginfo("publishing")
+        task_msg = task_allocation()
+        task_msg.id = [n for n in names]
+        task_msg.startx = [s[0] for s in starts]
+        task_msg.starty = [s[1] for s in starts]
+        task_msg.goalx = [g[0] for g in goals]
+        task_msg.goaly = [g[1] for g in goals]
+        while self.task_pub.get_num_connections() == 0:
+            rospy.loginfo("Waiting for subscriber to task topic:")
+            rospy.sleep(1)
+        self.task_pub.publish(task_msg)
+
+        # plot
+        plt.clf()
+        _, self.map_data, scale, origin = self.get_map_info()
+        utils.plot_pgm_data(self.map_data)
+        pix_frontier = self.arr_m_to_pixels(self.frontiers, scale, origin)
+        plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
+        for i in range(len(names)):
+            pix_rob = utils.m_to_pixels(starts[i], scale, origin)
+            pix_goal = utils.m_to_pixels(goals[i], scale, origin)
+            plt.plot(pix_rob[0], pix_rob[1], "ko", zorder=100)
+            plt.plot(
+                [pix_rob[0], pix_goal[0]],
+                [pix_rob[1], pix_goal[1]],
+                "k-",
+                zorder=90,
+            )
+        self.publish_image(self.image_pub)
+
+        return True
+
     def execute(self):
         """
         Uses frontiers as tasks
@@ -91,29 +189,37 @@ class FrontierAssignmentCommander(TaskCommander):
         )
         self.frontier_callback(msg)
 
-        # get robot positions
-        tflistener = tf.TransformListener()
-        tflistener.waitForTransform(
+        # get robot position
+        self.tflistener.waitForTransform(
             "map",
             list(self.agent_active_status.keys())[0] + "/base_link",
             rospy.Time(),
             rospy.Duration(1.0),
         )
-        robot_pos = self.get_agent_position(tflistener, scale, origin)
+        robot_pos = self.get_agent_position()
 
         # Create TA
         for name in self.agent_active_status:
             robot_info = RobotInfo(pos=robot_pos[name])
             self.robot_info_dict[name] = robot_info
-        solver = TA_frontier_greedy(self.robot_info_dict)
+        self.env = UnknownEnvironment(
+            nodes=self.frontiers, robot_info=self.robot_info_dict
+        )
+        solver = TA_frontier_greedy(self.env, self.beta)
+
+        # Create listener object
+        listener = TaskListenerRobosarControl(
+            [name for name in self.agent_active_status]
+        )
 
         # plot
-        image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
         utils.plot_pgm_data(self.map_data)
-        plt.plot(self.frontiers[:, 0], self.frontiers[:, 1], "go", zorder=100)
+        pix_frontier = self.arr_m_to_pixels(self.frontiers, scale, origin)
+        plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
         for pos in robot_pos.values():
-            plt.plot(pos[0], pos[1], "ko", zorder=100)
-        self.publish_image(image_pub)
+            pix_rob = utils.m_to_pixels(pos, scale, origin)
+            plt.plot(pix_rob[0], pix_rob[1], "ko", zorder=100)
+        self.publish_image(self.image_pub)
 
         # every time robot reaches a frontier, or every 5 seconds, reassign
         # get robot positions, updates env
@@ -125,63 +231,23 @@ class FrontierAssignmentCommander(TaskCommander):
         rospy.loginfo("Starting task allocator")
 
         while not rospy.is_shutdown():
-            # get frontiers
-            msg = rospy.wait_for_message(
-                "/frontier_filter/filtered_frontiers", PointArray, timeout=5
-            )
-            self.frontier_callback(msg)
+            if len(self.frontiers) == 0:
+                rospy.loginfo("No more frontiers. Exiting.")
+                break
 
-            # get costs
-            robot_pos = self.get_agent_position(tflistener, scale, origin)
-            for r, rp in robot_pos.items():
-                # only calculate rrt cost for n euclidean closest frontiers
-                n_frontiers = self.get_n_closest_frontiers(n=5, robot_pos=rp)
-                costs = []
-                for f in n_frontiers:
-                    print("{} to {}".format(rp, self.frontiers[f]))
-                    cost = self.rrt_path_cost_client(
-                        rp[0], rp[1], self.frontiers[0, 0], self.frontiers[0, 1]
-                    )
-                    costs.append(cost)
-                    print(cost)
-                # update robot infos
-                self.robot_info_dict[r].pos = rp
-                self.robot_info_dict[r].n_frontiers = n_frontiers
-                self.robot_info_dict[r].costs = costs
+            agent_reached = 0
+            for name in self.agent_active_status:
+                # TODO: change so that only one robot is reassigned when reached
+                agent_reached = listener.getStatus(name)
+                if agent_reached == 2:
+                    print("agent {} reached".format(name))
+                    break
 
-            # get assignment
-            names, starts, goals = solver.assign(self.frontiers)
-
-            # publish tasks
-            rospy.loginfo("publishing")
-            task_msg = task_allocation()
-            task_msg.id = [n for n in names]
-            task_msg.startx = [s[0] for s in starts]
-            task_msg.starty = [s[1] for s in starts]
-            task_msg.goalx = [g[0] for g in goals]
-            task_msg.goaly = [g[1] for g in goals]
-            while self.task_pub.get_num_connections() == 0:
-                rospy.loginfo("Waiting for subscriber to task topic:")
-                rospy.sleep(1)
-            self.task_pub.publish(task_msg)
-
-            # plot
-            plt.clf()
-            _, self.map_data, scale, origin = self.get_map_info()
-            utils.plot_pgm_data(self.map_data)
-            pix_frontier = self.arr_m_to_pixels(self.frontiers, scale, origin)
-            plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
-            for i in range(len(names)):
-                pix_rob = utils.m_to_pixels(starts[i], scale, origin)
-                pix_goal = utils.m_to_pixels(goals[i], scale, origin)
-                plt.plot(pix_rob[0], pix_rob[1], "ko", zorder=100)
-                plt.plot(
-                    [pix_rob[0], pix_goal[0]],
-                    [pix_rob[1], pix_goal[1]],
-                    "k-",
-                    zorder=90,
-                )
-            self.publish_image(image_pub)
+            if self.timer_flag:
+                for name in self.agent_active_status:
+                    listener.setBusyStatus(name)
+                self.reassign(solver)
+                self.timer_flag = False
 
             self.rate.sleep()
 

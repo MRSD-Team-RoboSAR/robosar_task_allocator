@@ -28,6 +28,7 @@ void FrontierRRTSearch::mapCallBack(const nav_msgs::OccupancyGrid::ConstPtr &msg
 // Service
 bool FrontierRRTSearch::getPathCost(robosar_messages::rrt_path_cost::Request &req, robosar_messages::rrt_path_cost::Response &resp)
 {
+    boost::mutex::scoped_lock(rrt_mutex_);
     ROS_INFO("rrt_path_cost request received.");
     int robot_node_id = rrt_.nearest(req.robot_x, req.robot_y);
     int goal_node_id = rrt_.nearest(req.goal_x, req.goal_y);
@@ -37,7 +38,6 @@ bool FrontierRRTSearch::getPathCost(robosar_messages::rrt_path_cost::Request &re
     float cost = rrt_.dijkstra(robot_node_id, goal_node_id);
     ROS_INFO("sending response.");
     resp.cost = cost;
-    resp.cost = 0.0;
     return true;
 }
 
@@ -259,13 +259,14 @@ void FrontierRRTSearch::startSearch()
 
     // Main loop
     ROS_INFO("Starting RRT");
-    ros::Rate rate(10);
+    ros::Rate rate(50);
     geometry_msgs::PointStamped exploration_goal;
 
     int prune_counter = 0;
 
     while (ros::ok())
     {
+        rrt_mutex_.lock();
         if (prune_counter == 500)
         {
             pruneRRT();
@@ -283,6 +284,8 @@ void FrontierRRTSearch::startSearch()
 
         // Nearest
         int x_nearest_id = rrt_.nearest(x_rand.first, x_rand.second);
+        // ROS_INFO("%d", rrt_.nodes_.size());
+        // ROS_INFO("%d", x_nearest_id);
         if (x_nearest_id == -1)
             continue;
         x_nearest = rrt_.get_node(x_nearest_id)->get_coord();
@@ -326,6 +329,7 @@ void FrontierRRTSearch::startSearch()
 
         marker_pub.publish(marker_line);
         prune_counter++;
+        rrt_mutex_.unlock();
 
         ros::spinOnce();
         rate.sleep();

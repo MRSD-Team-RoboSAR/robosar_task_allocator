@@ -115,35 +115,46 @@ class Environment:
 
 
 class UnknownEnvironment(Environment):
-    def __init__(self, nodes=[], robots={}, scale=0.0, origin=0.0) -> None:
+    def __init__(self, nodes=[], robot_info={}) -> None:
         """
         Takes in frontier nodes and list of robots
         """
-        super().__init__(nodes=nodes, robots=robots)
+        super().__init__(nodes=nodes)
+        self.robot_info_dict = robot_info
+        self.utility = np.ones((len(nodes),))
 
-    def add_robot(self, name, start):
-        """
-        id: int
-        start: start (x,y) position
-        """
-        robot = Robot(name, start)
-        self.robots[name] = robot
-        self.num_robots = len(self.robots)
-        self.id_dict[name] = self.num_robots - 1
+    # def add_robot(self, name, start):
+    #     """
+    #     id: int
+    #     start: start (x,y) position
+    #     """
+    #     robot = Robot(name, start)
+    #     self.robots[name] = robot
+    #     self.num_robots = len(self.robots)
+    #     self.id_dict[name] = self.num_robots - 1
 
-    def calculate_cost(self):
-        # calculate costs to each frontier for each robot
-        self.adj = np.zeros((self.num_robots, len(self.nodes)))
-        for name, r in self.robots.items():
-            for i, node in enumerate(self.nodes):
-                dist = self.euclidean(r.pos, node)
-                self.adj[self.get_robot_id(name), i] = dist
+    # def calculate_cost(self):
+    #     # calculate costs to each frontier for each robot
+    #     self.adj = np.zeros((self.num_robots, len(self.nodes)))
+    #     for name, r in self.robots.items():
+    #         for i, node in enumerate(self.nodes):
+    #             dist = self.euclidean(r.pos, node)
+    #             self.adj[self.get_robot_id(name), i] = dist
 
     def euclidean(self, x1, x2):
         return np.linalg.norm(x1 - x2)
 
+    def update_utility(self, goal_id, utility_discount_fn):
+        # (int, lambda_fn) -> None
+        goal = self.nodes[goal_id]
+        for i in range(len(self.nodes)):
+            node = self.nodes[i]
+            p = utility_discount_fn(self.euclidean(goal, node))
+            self.utility[i] -= p
+
     def update(self, nodes, robot_info_dict):
+        # TODO: make this better
         self.nodes = nodes
-        for name, robot_info in robot_info_dict.items():
-            self.robots[name].pos = robot_info.pos
-        self.calculate_cost()
+        self.visited.clear()
+        self.utility = np.ones((len(nodes),))
+        self.robot_info_dict = robot_info_dict

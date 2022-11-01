@@ -69,7 +69,7 @@ public:
 
     int nearest(float x, float y)
     {
-        float min = std::numeric_limits<float>::min();
+        float min = std::numeric_limits<float>::max();
         int min_index = -1;
         float temp;
         // ROS_INFO("x: %f, y: %f", x, y);
