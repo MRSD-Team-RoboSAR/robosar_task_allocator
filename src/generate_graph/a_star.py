@@ -8,10 +8,7 @@ def _get_movements_4n():
     Get all possible 4-connectivity movements.
     :return: list of movements with cost [(dx, dy, movement_cost)]
     """
-    return [(1, 0, 1.0),
-            (0, 1, 1.0),
-            (-1, 0, 1.0),
-            (0, -1, 1.0)]
+    return [(1, 0, 1.0), (0, 1, 1.0), (-1, 0, 1.0), (0, -1, 1.0)]
 
 
 def _get_movements_8n():
@@ -20,17 +17,19 @@ def _get_movements_8n():
     :return: list of movements with cost [(dx, dy, movement_cost)]
     """
     s2 = math.sqrt(2)
-    return [(1, 0, 1.0),
-            (0, 1, 1.0),
-            (-1, 0, 1.0),
-            (0, -1, 1.0),
-            (1, 1, s2),
-            (-1, 1, s2),
-            (-1, -1, s2),
-            (1, -1, s2)]
+    return [
+        (1, 0, 1.0),
+        (0, 1, 1.0),
+        (-1, 0, 1.0),
+        (0, -1, 1.0),
+        (1, 1, s2),
+        (-1, 1, s2),
+        (-1, -1, s2),
+        (1, -1, s2),
+    ]
 
 
-def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
+def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     """
     A* for 2D occupancy grid.
     :param start_m: start node (x, y) in meters
@@ -48,12 +47,11 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
 
     # check if start and goal nodes correspond to free spaces
     if gmap.is_occupied_idx(start):
-        raise Exception('Start node is not traversable')
+        raise Exception("Start node {} is not traversable".format(start))
 
     if gmap.is_occupied_idx(goal):
-        print(goal)
-        #print(gmap.is_occupied_idx(goal[0], goal[1]))
-        raise Exception('Goal node is not traversable')
+        # print(gmap.is_occupied_idx(goal[0], goal[1]))
+        raise Exception("Goal node {} is not traversable".format(goal))
 
     # add start node to front
     # front is a list of (total estimated cost to goal, total cost from start to node, node, previous node)
@@ -65,12 +63,12 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
     came_from = {}
 
     # get possible movements
-    if movement == '4N':
+    if movement == "4N":
         movements = _get_movements_4n()
-    elif movement == '8N':
+    elif movement == "8N":
         movements = _get_movements_8n()
     else:
-        raise ValueError('Unknown movement')
+        raise ValueError("Unknown movement")
 
     # while there are elements to investigate in our front.
     iter = 0
@@ -109,13 +107,19 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
                 continue
 
             # add node to front if it was not visited before and is not an obstacle
-            if (not gmap.is_visited_idx(new_pos)) and (not gmap.is_occupied_idx(new_pos)):
-                potential_function_cost = gmap.get_data_idx(new_pos)*occupancy_cost_factor
+            if (not gmap.is_visited_idx(new_pos)) and (
+                not gmap.is_occupied_idx(new_pos)
+            ):
+                potential_function_cost = (
+                    gmap.get_data_idx(new_pos) * occupancy_cost_factor
+                )
                 new_cost = cost + deltacost + potential_function_cost
-                new_total_cost_to_goal = new_cost + dist2d(new_pos, goal) + potential_function_cost
+                new_total_cost_to_goal = (
+                    new_cost + dist2d(new_pos, goal) + potential_function_cost
+                )
 
                 heappush(front, (new_total_cost_to_goal, new_cost, new_pos, pos))
-        iter+=1
+        iter += 1
 
     # reconstruct path backwards (only if we reached the goal)
     path = []
@@ -127,7 +131,7 @@ def a_star(start_m, goal_m, gmap, movement='8N', occupancy_cost_factor=3):
             if pos_m_x is None:
                 total_dist = 0.0
             else:
-                total_dist+=math.dist([pos_m_x,pos_m_y],[pos[0],pos[1]])
+                total_dist += math.dist([pos_m_x, pos_m_y], [pos[0], pos[1]])
             # transform array indices to meters
             pos_m_x, pos_m_y = gmap.get_coordinates_from_index(pos[0], pos[1])
             path.append((pos_m_x, pos_m_y))

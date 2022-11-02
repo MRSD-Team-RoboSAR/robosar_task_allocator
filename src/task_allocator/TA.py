@@ -241,16 +241,25 @@ class TA_frontier_greedy(TA):
         # (dict[str, RobotInfo]) -> None
         super().init(env)
         self.beta = beta
-        self.utility = self.env.utility
         self.robot_info_dict = env.robot_info_dict
 
     def assign(self, name):
         # (None) -> str, List[float], List[float]
         robot_info = self.robot_info_dict[name]
         # cost_fn = cost - beta*utility
+        dist_cost = robot_info.costs / np.max(robot_info.costs)
         cost_fn = (
-            robot_info.costs - self.beta * self.env.utility[robot_info.n_frontiers]
+            0.4 * dist_cost
+            - 0.3 * self.env.utility[robot_info.n_frontiers]
+            + 0.2 * robot_info.obstacle_costs
+            - 0.3 * robot_info.proximity_bonus
         )
+        print(self.env.nodes[robot_info.n_frontiers])
+        print("costs: ", robot_info.costs)
+        print("utility: ", self.env.utility[robot_info.n_frontiers])
+        print("obs: ", robot_info.obstacle_costs)
+        print("prox: ", robot_info.proximity_bonus)
+        print("tot: ", cost_fn)
         min_node_list = np.argsort(cost_fn)
         min_node = -1
         for i in min_node_list:

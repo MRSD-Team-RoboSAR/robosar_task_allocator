@@ -300,12 +300,12 @@ void FrontierRRTSearch::startSearch()
         {
             exploration_goal.header.stamp = ros::Time(0);
             exploration_goal.header.frame_id = mapData.header.frame_id;
-            exploration_goal.point.x = x_new.first;
-            exploration_goal.point.y = x_new.second;
+            exploration_goal.point.x = x_nearest.first;
+            exploration_goal.point.y = x_nearest.second;
             exploration_goal.point.z = 0.0;
             geometry_msgs::Point p;
-            p.x = x_new.first;
-            p.y = x_new.second;
+            p.x = x_nearest.first;
+            p.y = x_nearest.second;
             p.z = 0.0;
             marker_points.points.push_back(p);
             marker_pub.publish(marker_points);
