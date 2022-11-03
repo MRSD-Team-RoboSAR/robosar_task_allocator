@@ -1,3 +1,4 @@
+from collections import deque
 import math
 from heapq import heappush, heappop
 from .utils import dist2d
@@ -29,6 +30,45 @@ def _get_movements_8n():
     ]
 
 
+def get_closest_free_cell(start, gmap):
+    pix_range = 10
+    x_min = int(max(start[0] - pix_range, 0))
+    x_max = int(min(start[0] + pix_range, gmap.dim_cells[0] - 1))
+    y_min = int(max(start[1] - pix_range, 0))
+    y_max = int(min(start[1] + pix_range, gmap.dim_cells[1] - 1))
+    q = deque()
+    visited = [
+        [False for _ in range(x_min, x_max + 1)] for _ in range(y_min, y_max + 1)
+    ]
+    q.append(start)
+    visited[start[0] - x_min][start[1] - y_min] = True
+    iter = 0
+    prop_model = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, -1], [-1, 1]]
+    while len(q > 0):
+        curr = q.popleft()
+
+        if gmap.get_data_idx(curr) == 0:
+            print("Found free node {} after {} iterations".format(curr, iter))
+            return curr
+
+        for p in prop_model:
+            x_new = p[0] + curr[0]
+            y_new = p[1] + curr[1]
+            if (
+                x_new >= x_min
+                and x_new <= x_max
+                and y_new >= y_min
+                and y_new <= y_max
+                and not visited[x_new][y_new]
+            ):
+                q.append([x_new, y_new])
+                visited[x_new - x_min][y_new - y_min] = True
+        iter += 1
+
+    print("free node not found within range")
+    return start
+
+
 def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     """
     A* for 2D occupancy grid.
@@ -44,14 +84,18 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     # get array indices of start and goal
     start = gmap.get_index_from_coordinates(start_m[0], start_m[1])
     goal = gmap.get_index_from_coordinates(goal_m[0], goal_m[1])
+    print("start: ", start, start_m)
+    print("goal: ", goal, goal_m)
 
     # check if start and goal nodes correspond to free spaces
     if gmap.is_occupied_idx(start):
-        raise Exception("Start node {} is not traversable".format(start))
+        print("Start node {} is not traversable".format(start))
+        start = get_closest_free_cell(start, gmap)
 
     if gmap.is_occupied_idx(goal):
         # print(gmap.is_occupied_idx(goal[0], goal[1]))
-        raise Exception("Goal node {} is not traversable".format(goal))
+        print("Goal node {} is not traversable".format(goal))
+        goal = get_closest_free_cell(goal, gmap)
 
     # add start node to front
     # front is a list of (total estimated cost to goal, total cost from start to node, node, previous node)

@@ -130,7 +130,8 @@ class FrontierAssignmentCommander(TaskCommander):
         start_flip = [start[1] / downsample, start[0] / downsample]
         goal_flip = [goal[1] / downsample, goal[0] / downsample]
         _, _, cost = a_star(start_flip, goal_flip, gmap, movement="8N")
-        return cost
+        gmap.visited = np.zeros(gmap.dim_cells, dtype=np.float32)
+        return cost * self.scale * downsample
 
     def proximity_bonus(self, node, prev, r):
         if prev is None:
@@ -176,8 +177,8 @@ class FrontierAssignmentCommander(TaskCommander):
                 # cost = self.rrt_path_cost_client(
                 #     rp[0], rp[1], self.frontiers[f, 0], self.frontiers[f, 1]
                 # )
-                cost = np.linalg.norm(rp - self.frontiers[f])
-                # cost = self.a_star_cost(rp, self.frontiers[f], gmap, downsample)
+                # cost = np.linalg.norm(rp - self.frontiers[f])
+                cost = self.a_star_cost(rp, self.frontiers[f], gmap, downsample)
                 pc = self.obstacle_cost(self.frontiers[f], 1.0)
                 pb = self.proximity_bonus(
                     self.frontiers[f], self.robot_info_dict[r].prev, 2.0
@@ -309,13 +310,8 @@ class FrontierAssignmentCommander(TaskCommander):
         self.reassign(solver)
         self.timer_flag = False
 
-        no_frontiers_count = 0
         while not rospy.is_shutdown():
             if len(self.frontiers) == 0:
-                no_frontiers_count += 1
-                if no_frontiers_count > 40:
-                    rospy.loginfo("No more frontiers. Exiting.")
-                    break
                 continue
 
             no_frontiers_count = 0

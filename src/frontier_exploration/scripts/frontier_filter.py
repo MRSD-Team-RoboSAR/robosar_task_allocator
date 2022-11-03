@@ -124,12 +124,12 @@ class FrontierFilter:
                     possible_frontiers.append(f)
 
                 # Filter out previous centroids by information gain
-                # for f in self.filtered_frontiers:
-                #     info_gain = informationGain(
-                #         self.mapData, [f[0], f[1]], self.info_radius
-                #     )
-                #     if info_gain > self.info_threshold:
-                #         possible_frontiers.append(f)
+                for f in self.filtered_frontiers:
+                    info_gain = informationGain(
+                        self.mapData, [f[0], f[1]], self.info_radius
+                    )
+                    if info_gain > self.info_threshold:
+                        possible_frontiers.append(f)
 
                 # Clustering frontier points
                 if len(possible_frontiers) > 1:
@@ -153,10 +153,10 @@ class FrontierFilter:
                             self.mapData, [x[0], x[1]], self.info_radius
                         )
                         > 0.15
-                        and self.is_valid_frontier(x)
+                        # and self.is_valid_frontier(x)
                     ):
                         centroids_filtered.append(c)
-                # self.filtered_frontiers = copy(centroids_filtered)
+                self.filtered_frontiers = copy(centroids_filtered)
 
                 # publishing
                 arraypoints.points = []
