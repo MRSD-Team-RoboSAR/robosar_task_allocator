@@ -100,6 +100,7 @@ def discount(mapData, assigned_pt, centroids, infoGain, r):
 
 
 def pathCost(path):
+    r_region = 5
     if len(path) > 0:
         i = len(path) / 2
         p1 = (
@@ -168,3 +169,24 @@ def gridValue(mapData, Xp):
         return Data[int(index)]
     else:
         return 100
+
+
+def Norm(x1, y1, x2, y2):
+    return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+
+
+def Steer(x_nearest, x_rand, eta):
+    x_new = [x_nearest[0], x_nearest[1]]
+    if Norm(x_nearest[0], x_nearest[1], x_rand[0], x_rand[1]) <= eta:
+        x_new = x_rand
+    else:
+        m = (x_rand[1] - x_nearest[1]) / (x_rand[0] - x_nearest[0])
+
+        if x_rand[0] == x_nearest[0]:
+            x_new = [x_nearest[0], x_nearest[1] + eta]
+
+        x_new[0] = (np.sign(x_rand[0] - x_nearest[0])) * (
+            np.sqrt(eta**2) / ((m**2) + 1)
+        ) + x_nearest[0]
+        x_new[1] = m * (x_new[0] - x_nearest[0]) + x_nearest[1]
+    return x_new

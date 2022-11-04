@@ -251,8 +251,8 @@ class TA_frontier_greedy(TA):
         cost_fn = (
             0.4 * dist_cost
             - 0.3 * self.env.utility[robot_info.n_frontiers]
-            + 0.3 * robot_info.obstacle_costs
-            - 0.1 * robot_info.proximity_bonus
+            + 0.2 * robot_info.obstacle_costs
+            - 0.2 * robot_info.proximity_bonus
         )
         print(self.env.nodes[robot_info.n_frontiers])
         print("costs: ", robot_info.costs)

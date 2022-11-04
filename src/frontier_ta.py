@@ -162,13 +162,15 @@ class FrontierAssignmentCommander(TaskCommander):
         _, self.map_data, self.scale, self.origin = self.get_map_info()
 
         # get costs
-        downsample = 1
+        downsample = 2
         robot_pos = self.get_agent_position()
-        # resized_image = skimage.measure.block_reduce(self.map_data, (1, 1), np.max)
-        gmap = OccupancyGridMap.from_data(self.map_data)
+        resized_image = skimage.measure.block_reduce(
+            self.map_data, (downsample, downsample), np.max
+        )
+        gmap = OccupancyGridMap.from_data(resized_image)
         for r, rp in robot_pos.items():
             # only calculate rrt cost for n euclidean closest frontiers
-            n_frontiers = self.get_n_closest_frontiers(n=5, robot_pos=rp)
+            n_frontiers = self.get_n_closest_frontiers(n=8, robot_pos=rp)
             costs = []
             obstacle_costs = []
             prox_bonus = []
@@ -259,10 +261,11 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # Get frontiers
         rospy.loginfo("Waiting for frontiers")
-        msg = rospy.wait_for_message(
-            "/frontier_filter/filtered_frontiers", PointArray, timeout=None
-        )
-        self.frontier_callback(msg)
+        while len(self.frontiers) == 0:
+            msg = rospy.wait_for_message(
+                "/frontier_filter/filtered_frontiers", PointArray, timeout=None
+            )
+            self.frontier_callback(msg)
 
         # get robot position
         self.tflistener.waitForTransform(

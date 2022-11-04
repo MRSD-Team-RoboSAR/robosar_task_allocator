@@ -259,7 +259,7 @@ void FrontierRRTSearch::startSearch()
 
     // Main loop
     ROS_INFO("Starting RRT");
-    ros::Rate rate(50);
+    ros::Rate rate(100);
     geometry_msgs::PointStamped exploration_goal;
 
     int prune_counter = 0;

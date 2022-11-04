@@ -36,20 +36,20 @@ def get_closest_free_cell(start, gmap):
     x_max = int(min(start[0] + pix_range, gmap.dim_cells[0] - 1))
     y_min = int(max(start[1] - pix_range, 0))
     y_max = int(min(start[1] + pix_range, gmap.dim_cells[1] - 1))
-    q = deque()
+    q = deque([])
     visited = [
         [False for _ in range(x_min, x_max + 1)] for _ in range(y_min, y_max + 1)
     ]
     q.append(start)
     visited[start[0] - x_min][start[1] - y_min] = True
     iter = 0
-    prop_model = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, -1], [-1, 1]]
-    while len(q > 0):
+    prop_model = _get_movements_8n()
+    while len(q) > 0:
         curr = q.popleft()
 
         if gmap.get_data_idx(curr) == 0:
             print("Found free node {} after {} iterations".format(curr, iter))
-            return curr
+            return tuple(curr)
 
         for p in prop_model:
             x_new = p[0] + curr[0]
@@ -59,14 +59,14 @@ def get_closest_free_cell(start, gmap):
                 and x_new <= x_max
                 and y_new >= y_min
                 and y_new <= y_max
-                and not visited[x_new][y_new]
+                and not visited[x_new - x_min][y_new - y_min]
             ):
                 q.append([x_new, y_new])
                 visited[x_new - x_min][y_new - y_min] = True
         iter += 1
 
     print("free node not found within range")
-    return start
+    return tuple(start)
 
 
 def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
@@ -84,8 +84,8 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     # get array indices of start and goal
     start = gmap.get_index_from_coordinates(start_m[0], start_m[1])
     goal = gmap.get_index_from_coordinates(goal_m[0], goal_m[1])
-    print("start: ", start, start_m)
-    print("goal: ", goal, goal_m)
+    print("start: ", start)
+    print("goal: ", goal)
 
     # check if start and goal nodes correspond to free spaces
     if gmap.is_occupied_idx(start):
@@ -117,9 +117,9 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     # while there are elements to investigate in our front.
     iter = 0
     while front:
-        if iter == 5000:
-            # print("WARN: astar timeout")
-            break
+        if iter == 10000:
+            print("WARN: astar timeout")
+            return [], [], 5 * math.dist(start, goal)
         # get smallest item and remove from front.
         element = heappop(front)
 
@@ -150,10 +150,8 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
             if not gmap.is_inside_idx(new_pos):
                 continue
 
-            # add node to front if it was not visited before and is not an obstacle
-            if (not gmap.is_visited_idx(new_pos)) and (
-                not gmap.is_occupied_idx(new_pos)
-            ):
+            # add node to front if it was not visited before and is in free space
+            if (not gmap.is_visited_idx(new_pos)) and (gmap.get_data_idx(new_pos) == 0):
                 potential_function_cost = (
                     gmap.get_data_idx(new_pos) * occupancy_cost_factor
                 )

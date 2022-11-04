@@ -12,6 +12,7 @@ from numpy import array, vstack
 from robosar_messages.msg import PointArray
 from sklearn.cluster import MeanShift
 from visualization_msgs.msg import Marker
+import functions
 
 from functions import gridValue, informationGain
 
@@ -99,6 +100,44 @@ class FrontierFilter:
             return True
         return False
 
+    def obstacle_free(self, xnear, xnew):
+        rez = float(self.mapData.info.resolution) * 0.2
+        stepz = int(np.ceil(functions.Norm(xnew[0], xnew[1], xnear[0], xnear[1])) / rez)
+        xi = xnear
+        obs = 0
+        unk = 0
+
+        for _ in range(stepz):
+            xi = functions.Steer(xi, xnew, rez)
+            if functions.unvalid(self.mapData, xi):
+                obs = 1
+                break
+            if gridValue(self.mapData, xi) == 100:
+                obs = 1
+            if gridValue(self.mapData, xi) == -1:
+                unk = 1
+                break
+        out = 0
+        xnew = xi
+        if unk == 1:
+            out = -1  # unknown
+        if obs == 1:
+            out = 0  # occupied
+        if obs != 1 and unk != 1:
+            out = 1  # free
+
+        return out
+
+    def check_obs_intersection(self, centroid, label, cluster_labels, frontiers):
+        points = []
+        for idx, l in enumerate(cluster_labels):
+            if l == label:
+                points.append(frontiers[idx])
+        for p in points:
+            if self.obstacle_free(p, centroid) == 0:
+                return True
+        return False
+
     def filter(self):
         # wait if no frontier is received yet
         rospy.loginfo("Waiting for frontiers")
@@ -119,6 +158,7 @@ class FrontierFilter:
             with self.map_lock and self.frontier_lock:
                 centroids = []
                 possible_frontiers = []
+                labels = []
                 # Add received frontiers
                 for f in self.received_frontiers:
                     possible_frontiers.append(f)
@@ -138,12 +178,13 @@ class FrontierFilter:
                     centroids = (
                         ms.cluster_centers_
                     )  # centroids array is the centers of each cluster
+                    labels = ms.labels_
                 if len(possible_frontiers) == 1:
                     centroids = possible_frontiers
 
                 # make sure centroid is not occupied, filter out by information gain
                 centroids_filtered = []
-                for c in centroids:
+                for idx, c in enumerate(centroids):
                     centroid_point.point.x = c[0]
                     centroid_point.point.y = c[1]
                     x = array([centroid_point.point.x, centroid_point.point.y])
@@ -153,6 +194,9 @@ class FrontierFilter:
                             self.mapData, [x[0], x[1]], self.info_radius
                         )
                         > 0.15
+                        and not self.check_obs_intersection(
+                            c, idx, labels, possible_frontiers
+                        )
                         # and self.is_valid_frontier(x)
                     ):
                         centroids_filtered.append(c)
