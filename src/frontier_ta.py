@@ -20,12 +20,12 @@ from task_transmitter.task_listener_robosar_control import TaskListenerRobosarCo
 
 
 class RobotInfo:
-    def __init__(self, pos=[], n_frontiers=[], costs=[]) -> None:
+    def __init__(self, pos=[], n_tasks=[], costs=[]) -> None:
         self.name = ""
         self.pos = pos
         self.curr = None
         self.prev = None
-        self.n_frontiers = n_frontiers
+        self.n_tasks = n_tasks
         self.costs = costs
         self.utility = []
         self.obstacle_costs = []
@@ -37,7 +37,6 @@ class FrontierAssignmentCommander(TaskCommander):
         super().__init__()
         reassign_period = rospy.get_param("~reassign_period", 30.0)
         self.utility_range = rospy.get_param("~utility_range", 2.0)
-        self.beta = rospy.get_param("~beta", 5.0)
         timer = rospy.Timer(rospy.Duration(reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
@@ -91,11 +90,6 @@ class FrontierAssignmentCommander(TaskCommander):
             return resp1.cost
         except rospy.ServiceException as e:
             print("RRT path service call failed: %s" % e)
-
-    def get_n_closest_frontiers(self, n, robot_pos):
-        C = np.linalg.norm(self.frontiers - robot_pos, axis=1)
-        min_node_list = np.argsort(C)
-        return min_node_list[:n]
 
     def utility_discount_fn(self, dist):
         p = 0.0
@@ -160,31 +154,36 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # get map
         _, self.map_data, self.scale, self.origin = self.get_map_info()
-
-        # get costs
         downsample = 2
         robot_pos = self.get_agent_position()
         resized_image = skimage.measure.block_reduce(
             self.map_data, (downsample, downsample), np.max
         )
         gmap = OccupancyGridMap.from_data(resized_image)
+
+        # update env
+        self.env.update_tasks(self.frontiers)
+
+        # get costs
         for r, rp in robot_pos.items():
             # only calculate rrt cost for n euclidean closest frontiers
-            n_frontiers = self.get_n_closest_frontiers(n=8, robot_pos=rp)
+            n_tasks = self.env.get_n_closest_tasks(n=8, robot_pos=rp)
             costs = []
             obstacle_costs = []
             prox_bonus = []
             print("robot {} calcs".format(r))
-            for f in n_frontiers:
+            for task in n_tasks:
+                task_pos = task.pos
+                # # RRT path
                 # cost = self.rrt_path_cost_client(
-                #     rp[0], rp[1], self.frontiers[f, 0], self.frontiers[f, 1]
+                #     rp[0], rp[1], task_pos[0], task_pos[1]
                 # )
-                # cost = np.linalg.norm(rp - self.frontiers[f])
-                cost = self.a_star_cost(rp, self.frontiers[f], gmap, downsample)
-                pc = self.obstacle_cost(self.frontiers[f], 1.0)
-                pb = self.proximity_bonus(
-                    self.frontiers[f], self.robot_info_dict[r].prev, 2.0
-                )
+                # # Euclidean
+                # cost = np.linalg.norm(rp - task_pos)
+                # A* path
+                cost = self.a_star_cost(rp, task_pos, gmap, downsample)
+                pc = self.obstacle_cost(task_pos, 1.0)
+                pb = self.proximity_bonus(task_pos, self.robot_info_dict[r].prev, 2.0)
                 costs.append(cost)
                 obstacle_costs.append(pc)
                 prox_bonus.append(pb)
@@ -193,13 +192,12 @@ class FrontierAssignmentCommander(TaskCommander):
             self.robot_info_dict[r].name = r
             self.robot_info_dict[r].prev = self.robot_info_dict[r].curr
             self.robot_info_dict[r].pos = rp
-            self.robot_info_dict[r].n_frontiers = n_frontiers
+            self.robot_info_dict[r].n_tasks = n_tasks
             self.robot_info_dict[r].costs = np.array(costs)
             self.robot_info_dict[r].obstacle_costs = np.array(obstacle_costs)
             self.robot_info_dict[r].proximity_bonus = np.array(prox_bonus)
 
-        # update env
-        self.env.update(self.frontiers, self.robot_info_dict)
+        self.env.update_robot_info(self.robot_info_dict)
 
         # get assignment
         names = []
@@ -207,11 +205,11 @@ class FrontierAssignmentCommander(TaskCommander):
         goals = []
         for name in self.agent_active_status:
             goal = solver.assign(name)
-            if goal != -1:
-                self.robot_info_dict[r].curr = self.frontiers[goal]
+            if goal is not None:
+                self.robot_info_dict[r].curr = goal.pos
                 names.append(name)
                 starts.append(robot_pos[name])
-                goals.append(self.frontiers[goal])
+                goals.append(goal.pos)
                 # update utility
                 self.env.update_utility(goal, self.utility_discount_fn)
 
@@ -281,9 +279,9 @@ class FrontierAssignmentCommander(TaskCommander):
             robot_info = RobotInfo(pos=robot_pos[name])
             self.robot_info_dict[name] = robot_info
         self.env = UnknownEnvironment(
-            nodes=self.frontiers, robot_info=self.robot_info_dict
+            frontier_tasks=self.frontiers, robot_info=self.robot_info_dict
         )
-        solver = TA_frontier_greedy(self.env, self.beta)
+        solver = TA_frontier_greedy(self.env)
 
         # Create listener object
         listener = TaskListenerRobosarControl(

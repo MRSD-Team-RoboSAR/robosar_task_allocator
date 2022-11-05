@@ -232,63 +232,99 @@ class TA_mTSP(TA):
         return adj_new
 
 
-class TA_frontier_greedy(TA):
+class TA_frontier_greedy:
     """
     round robin greedy assignment
     """
 
-    def __init__(self, env, beta):
-        # (dict[str, RobotInfo]) -> None
-        super().init(env)
-        self.beta = beta
+    def __init__(self, env):
+        # (UnknownEnvironment, float) -> None
+        self.env = env
         self.robot_info_dict = env.robot_info_dict
 
     def assign(self, name):
         # (None) -> str, List[float], List[float]
         robot_info = self.robot_info_dict[name]
-        # cost_fn = cost - beta*utility
+        # cost_fn
         dist_cost = robot_info.costs / np.max(robot_info.costs)
+        n_utility = self.env.get_utility_arr_from_ntasks(robot_info.n_tasks)
         cost_fn = (
             0.4 * dist_cost
-            - 0.3 * self.env.utility[robot_info.n_frontiers]
-            + 0.2 * robot_info.obstacle_costs
-            - 0.2 * robot_info.proximity_bonus
+            - 0.3 * n_utility
+            # + 0.2 * robot_info.obstacle_costs
+            - 0.1 * robot_info.proximity_bonus
         )
-        print(self.env.nodes[robot_info.n_frontiers])
         print("costs: ", robot_info.costs)
-        print("utility: ", self.env.utility[robot_info.n_frontiers])
+        print("utility: ", n_utility)
         print("obs: ", robot_info.obstacle_costs)
         print("prox: ", robot_info.proximity_bonus)
         print("tot: ", cost_fn)
+        # get least cost node
         min_node_list = np.argsort(cost_fn)
-        min_node = -1
+        min_node = None
         for i in min_node_list:
-            if robot_info.n_frontiers[i] not in self.env.visited:
-                min_node = robot_info.n_frontiers[i]
-                self.env.visited.add(min_node)
+            if not robot_info.n_tasks[i].visited:
+                min_node = robot_info.n_tasks[i]
+                min_node.visited = True
                 break
-        if min_node == -1:
+        if min_node is not None:
             # TODO: add use euclidean distance
             print("{} unused".format(name))
             return min_node
 
         print(
-            "Assigned {}: node {} at {}".format(
-                name, min_node, self.env.nodes[min_node]
+            "Assigned {}: {} task {} at {}".format(
+                name, min_node.task_type, min_node.id, min_node.pos
             )
         )
 
         return min_node
 
 
-class TA_frontier_hungarian(TA):
+class TA_frontier_coverage_greedy:
     """
-    Hungarian assignment
+    round robin greedy assignment between frontier and coverage tasks
     """
 
-    def __init__(self, env) -> None:
-        super().init(env)
+    def __init__(self, env):
+        # (UnknownEnvironment, float) -> None
+        self.env = env
+        self.robot_info_dict = env.robot_info_dict
 
-    def assign(self, cost_matrix, node_ids):
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        return node_ids[col_ind]
+    def assign(self, name):
+        # (None) -> str, List[float], List[float]
+        robot_info = self.robot_info_dict[name]
+        # cost_fn
+        dist_cost = robot_info.costs / np.max(robot_info.costs)
+        n_utility = self.env.get_utility_arr_from_ntasks(robot_info.n_tasks)
+        cost_fn = (
+            0.4 * dist_cost
+            - 0.3 * n_utility
+            + 0.2 * robot_info.obstacle_costs
+            - 0.1 * robot_info.proximity_bonus
+        )
+        print("costs: ", robot_info.costs)
+        print("utility: ", n_utility)
+        print("obs: ", robot_info.obstacle_costs)
+        print("prox: ", robot_info.proximity_bonus)
+        print("tot: ", cost_fn)
+        # get least cost node
+        min_node_list = np.argsort(cost_fn)
+        min_node = None
+        for i in min_node_list:
+            if not robot_info.n_tasks[i].visited:
+                min_node = robot_info.n_tasks[i]
+                min_node.visited = True
+                break
+        if min_node is not None:
+            # TODO: add use euclidean distance
+            print("{} unused".format(name))
+            return min_node
+
+        print(
+            "Assigned {}: {} task {} at {}".format(
+                name, min_node.task_type, min_node.id, min_node.pos
+            )
+        )
+
+        return min_node

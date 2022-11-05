@@ -114,47 +114,86 @@ class Environment:
         return -1
 
 
-class UnknownEnvironment(Environment):
-    def __init__(self, nodes=[], robot_info={}) -> None:
+class UnknownEnvironment:
+    def __init__(self, frontier_tasks=[], robot_info={}) -> None:
         """
         Takes in frontier nodes and list of robots
         """
-        super().__init__(nodes=nodes)
+        # dict[int, RobotInfo]
         self.robot_info_dict = robot_info
-        self.utility = np.ones((len(nodes),))
-
-    # def add_robot(self, name, start):
-    #     """
-    #     id: int
-    #     start: start (x,y) position
-    #     """
-    #     robot = Robot(name, start)
-    #     self.robots[name] = robot
-    #     self.num_robots = len(self.robots)
-    #     self.id_dict[name] = self.num_robots - 1
-
-    # def calculate_cost(self):
-    #     # calculate costs to each frontier for each robot
-    #     self.adj = np.zeros((self.num_robots, len(self.nodes)))
-    #     for name, r in self.robots.items():
-    #         for i, node in enumerate(self.nodes):
-    #             dist = self.euclidean(r.pos, node)
-    #             self.adj[self.get_robot_id(name), i] = dist
+        # frontiers are rewritten every time update() is called
+        self.frontier_tasks = frontier_tasks  # List[Task]
+        # coverage tasks persist and are updated every time update() is called
+        self.coverage_tasks_dict = {}  # Dict[int, Task]
+        # total unvisited tasks
+        self.available_tasks = []  # List[Task]
+        # reset every time update() is called
+        self.utility = np.ones((len(self.available_tasks),))
 
     def euclidean(self, x1, x2):
         return np.linalg.norm(x1 - x2)
 
-    def update_utility(self, goal_id, utility_discount_fn):
-        # (int, lambda_fn) -> None
-        goal = self.nodes[goal_id]
-        for i in range(len(self.nodes)):
-            node = self.nodes[i]
-            p = utility_discount_fn(self.euclidean(goal, node))
-            self.utility[i] -= p
+    def get_unvisited_coverage_tasks(self):
+        unvisited = []
+        for id, ct in self.coverage_tasks_dict.items():
+            if not ct.visited:
+                unvisited.append(id)
+        return unvisited
 
-    def update(self, nodes, robot_info_dict):
-        # TODO: make this better
-        self.nodes = nodes
-        self.visited.clear()
-        self.utility = np.ones((len(nodes),))
+    def update_utility(self, goal, utility_discount_fn):
+        # (int, lambda_fn) -> None
+        goal_pos = goal.pos
+        for i in range(len(self.available_tasks)):
+            node_pos = self.available_tasks[i].pos
+            p = utility_discount_fn(self.euclidean(goal_pos, node_pos))
+            self.available_tasks[i].utility -= p
+
+    def reset_utility(self):
+        for task in self.coverage_tasks_dict.values():
+            task.utility = 1.0
+
+    def get_utility_arr_from_ntasks(self, n_tasks):
+        n_utility = np.zeros((len(n_tasks),))
+        for idx, task in enumerate(n_tasks):
+            n_utility[idx] = task.utility
+        return n_utility
+
+    def get_available_task_pos(self):
+        task_pos = np.zeros((len(self.available_tasks), 2))
+        for idx, task in enumerate(self.available_tasks):
+            task_pos[idx, :] = task.pos
+        return task_pos
+
+    def get_n_closest_tasks(self, n, robot_pos):
+        C = np.linalg.norm(self.get_available_task_pos() - robot_pos, axis=1)
+        min_node_list = np.argsort(C)
+        n_tasks_idx = min_node_list[:n]
+        return [self.available_tasks[t] for t in n_tasks_idx]
+
+    def update_tasks(self, frontier_tasks, coverage_tasks_dict={}):
+        self.frontier_tasks = []
+        for id, ft in enumerate(frontier_tasks):
+            self.frontier_tasks.append(Task(task_type="frontier", pos=ft, id=id))
+        for id, ct in coverage_tasks_dict.items():
+            if id in self.coverage_tasks_dict:
+                self.coverage_tasks_dict[id].pos = ct
+            else:
+                self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct, id=id)
+        self.available_tasks = []
+        for task in self.frontier_tasks:
+            self.available_tasks.append(task)
+        for task_id in self.get_unvisited_coverage_tasks():
+            self.available_tasks.append(self.coverage_tasks_dict[task_id])
+        self.reset_utility()
+
+    def update_robot_info(self, robot_info_dict={}):
         self.robot_info_dict = robot_info_dict
+
+
+class Task:
+    def __init__(self, task_type="frontier", pos=[0.0, 0.0], id=0) -> None:
+        self.task_type = task_type
+        self.pos = pos
+        self.id = id
+        self.utility = 1.0
+        self.visited = False
