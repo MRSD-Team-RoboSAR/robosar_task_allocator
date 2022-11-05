@@ -11,6 +11,7 @@ FrontierRRTSearch::FrontierRRTSearch(ros::NodeHandle &nh) : nh_(nh)
     ns = ros::this_node::getName();
     ros::param::param<float>(ns + "/eta", eta, 10);
     ros::param::param<std::string>(ns + "/map_topic", map_topic, "/map");
+    ROS_INFO("map topic: %s", map_topic.c_str());
     ros::param::param<std::string>(ns + "/robot_leader", robot_leader, "agent1");
 
     map_sub = nh_.subscribe(map_topic, 100, &FrontierRRTSearch::mapCallBack, this);
@@ -47,11 +48,12 @@ void FrontierRRTSearch::getRobotLeaderPosition()
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_(tf_buffer_);
     geometry_msgs::TransformStamped tf;
-    ros::Duration(5.0).sleep();
+    ros::Duration(1.0).sleep();
     try
     {
-        ros::Time now = ros::Time(0);
+        ros::Time now = ros::Time::now();
         ROS_INFO("%s", robot_leader.c_str());
+        ros::Duration(3.0).sleep();
         tf = tf_buffer_.lookupTransform("map", robot_leader + "/base_link", now);
 
         geometry_msgs::Point p;
@@ -131,7 +133,7 @@ char FrontierRRTSearch::ObstacleFree(std::pair<float, float> &xnear, std::pair<f
     {
         xi = Steer(xi, xnew, rez);
 
-        if (gridValue(xi) == 100)
+        if (gridValue(xi) > 60)
             obs = 1;
         if (gridValue(xi) == -1)
         {
@@ -168,7 +170,8 @@ void FrontierRRTSearch::pruneRRT()
     }
     for (int id : to_remove)
     {
-        rrt_.remove_node(id);
+        if (id != 0) // never remove root node
+            rrt_.remove_node(id);
     }
     // visualization
     marker_line.points.clear();
@@ -239,11 +242,12 @@ void FrontierRRTSearch::startSearch()
 
     // wait until map is received, when a map is received, mapData.header.seq will not be < 1
     ROS_INFO("Waiting for map topic %s", map_topic.c_str());
-    while (mapData.header.seq < 1 or mapData.data.size() < 1)
+    while (mapData.data.size() < 1)
     {
         ros::spinOnce();
         ros::Duration(0.1).sleep();
     }
+    ROS_INFO("Received map.");
 
     initMarkers();
     geometry_msgs::Point trans;
@@ -272,6 +276,13 @@ void FrontierRRTSearch::startSearch()
             pruneRRT();
             prune_counter = 0;
         }
+        if (rrt_.nodes_.size() == 0)
+        {
+            marker_points.points.clear();
+            getRobotLeaderPosition();
+            trans = marker_points.points[0];
+            rrt_.add_node(trans.x, trans.y, -1);
+        }
 
         // Sample free
         int xp_r = drand() * mapData.info.width;
@@ -294,7 +305,10 @@ void FrontierRRTSearch::startSearch()
         x_new = Steer(x_nearest, x_rand, eta);
 
         // ObstacleFree    1:free     -1:unkown (frontier region)      0:obstacle
-        char checking = ObstacleFree(x_nearest, x_new);
+        char checking = 1;
+        if (x_nearest_id != 0)
+            checking = ObstacleFree(x_nearest, x_new);
+        // ROS_INFO("x_new occ: %d", gridValue(x_new));
 
         if (checking == -1)
         {

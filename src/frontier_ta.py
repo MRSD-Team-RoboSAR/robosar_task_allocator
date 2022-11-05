@@ -35,7 +35,7 @@ class RobotInfo:
 class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
-        reassign_period = rospy.get_param("~reassign_period", 15.0)
+        reassign_period = rospy.get_param("~reassign_period", 30.0)
         self.utility_range = rospy.get_param("~utility_range", 2.0)
         self.beta = rospy.get_param("~beta", 5.0)
         timer = rospy.Timer(rospy.Duration(reassign_period), self.timer_flag_callback)
