@@ -28,7 +28,7 @@ class RobotInfo:
         self.n_tasks = n_tasks
         self.costs = costs
         self.utility = []
-        # self.obstacle_costs = []
+        self.obstacle_costs = []
         # self.proximity_bonus = []
 
 
@@ -180,7 +180,7 @@ class FrontierAssignmentCommander(TaskCommander):
         # only calculate rrt cost for n euclidean closest frontiers
         n_tasks = self.env.get_n_closest_tasks(n=self.n, robot_pos=rp)
         costs = []
-        # obstacle_costs = []
+        obstacle_costs = []
         # prox_bonus = []
         print("robot {} calcs".format(robot_id))
         for task in n_tasks:
@@ -193,20 +193,20 @@ class FrontierAssignmentCommander(TaskCommander):
             # cost = np.linalg.norm(rp - task_pos)
             # A* path
             cost = self.a_star_cost(rp, task_pos)
-            # pc = self.obstacle_cost(task_pos, 1.0)
+            pc = self.obstacle_cost(task_pos, 1.0)
             # pb = 0.0
             # if self.robot_info_dict[robot_id].prev is not None:
             #     pb = self.proximity_bonus(
             #         task_pos, self.robot_info_dict[rrobot_id.prev.pos, 2.0
             # )
             costs.append(cost)
-            # obstacle_costs.append(pc)
+            obstacle_costs.append(pc)
             # prox_bonus.append(pb)
         # update robot infos
         self.robot_info_dict[robot_id].prev = self.robot_info_dict[robot_id].curr
         self.robot_info_dict[robot_id].n_tasks = n_tasks
         self.robot_info_dict[robot_id].costs = np.array(costs)
-        # self.robot_info_dict[robot_id].obstacle_costs = np.array(obstacle_costs)
+        self.robot_info_dict[robot_id].obstacle_costs = np.array(obstacle_costs)
         # self.robot_info_dict[robot_id].proximity_bonus = np.array(prox_bonus)
 
     def prepare_env(self):
