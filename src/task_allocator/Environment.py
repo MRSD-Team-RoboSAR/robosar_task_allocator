@@ -131,7 +131,14 @@ class UnknownEnvironment:
         self.utility = np.ones((len(self.available_tasks),))
 
     def euclidean(self, x1, x2):
-        return np.linalg.norm(x1 - x2)
+        return np.linalg.norm([x1[0] - x2[0], x1[1] - x2[1]])
+
+    def get_visited_coverage_tasks(self):
+        visited = []
+        for id, ct in self.coverage_tasks_dict.items():
+            if ct.visited:
+                visited.append(id)
+        return visited
 
     def get_unvisited_coverage_tasks(self):
         unvisited = []
@@ -139,6 +146,13 @@ class UnknownEnvironment:
             if not ct.visited:
                 unvisited.append(id)
         return unvisited
+
+    def get_unvisited_coverage_tasks_pos(self):
+        unvisited = []
+        for ct in self.coverage_tasks_dict.values():
+            if not ct.visited:
+                unvisited.append(ct.pos)
+        return np.array(unvisited)
 
     def update_utility(self, goal, utility_discount_fn):
         # (int, lambda_fn) -> None

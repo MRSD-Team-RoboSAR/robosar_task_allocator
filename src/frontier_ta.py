@@ -43,15 +43,51 @@ class FrontierAssignmentCommander(TaskCommander):
         self.tflistener = tf.TransformListener()
         self.timer_flag = False
         self.frontiers = []
+        self.coverage_tasks = {}
+        self.available_tasks = []
         self.map_data = None
         self.robot_info_dict = {}  # type: dict[str, RobotInfo]
         self.env = None  # type: UnknownEnvironment
+
+    def task_graph_client(self):
+        task_ids = []
+        points = []
+        task_types = []
+        print("calling task graph getter service")
+        rospy.wait_for_service("/robosar_task_generator/task_graph_getter")
+        try:
+            task_graph_getter_service = rospy.ServiceProxy(
+                "/robosar_task_generator/task_graph_getter", task_graph_getter
+            )
+            resp1 = task_graph_getter_service()
+            task_ids = resp1.task_ids
+            points = resp1.points
+            task_types = resp1.task_types
+        except rospy.ServiceException as e:
+            print("task graph getter service call failed: %s" % e)
+
+        for i in range(len(task_ids)):
+            if task_types[i] == resp1.COVERAGE:
+                self.coverage_tasks[task_ids[i]] = [points[i].x, points[i].y]
+        return
+
+    def send_visited_to_task_graph(self):
+        visited_ids = self.env.get_visited_coverage_tasks()
+        print("calling task graph setter service")
+        rospy.wait_for_service("/robosar_task_generator/task_graph_setter")
+        try:
+            task_graph_getter_service = rospy.ServiceProxy(
+                "/robosar_task_generator/task_graph_setter", task_graph_setter
+            )
+            task_graph_getter_service(visited_ids)
+        except rospy.ServiceException as e:
+            print("task graph getter service call failed: %s" % e)
+        print("visited IDs: ", visited_ids)
 
     def timer_flag_callback(self, event=None):
         self.timer_flag = True
 
     def frontier_callback(self, msg):
-        # TODO: add locks or just change to subscribe once per loop
         points = []
         for point in msg.points:
             points.append([point.x, point.y])
@@ -162,7 +198,8 @@ class FrontierAssignmentCommander(TaskCommander):
         gmap = OccupancyGridMap.from_data(resized_image)
 
         # update env
-        self.env.update_tasks(self.frontiers)
+        self.env.update_tasks(self.frontiers, self.coverage_tasks)
+        unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
 
         # get costs
         for r, rp in robot_pos.items():
@@ -232,6 +269,9 @@ class FrontierAssignmentCommander(TaskCommander):
             utils.plot_pgm_data(self.map_data)
             pix_frontier = self.arr_m_to_pixels(self.frontiers)
             plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
+            if len(unvisited_coverage) > 0:
+                pix_coverage = self.arr_m_to_pixels(unvisited_coverage)
+                plt.plot(pix_coverage[:, 0], pix_coverage[:, 1], "bo", zorder=100)
             for i in range(len(names)):
                 pix_rob = utils.m_to_pixels(starts[i], self.scale, self.origin)
                 pix_goal = utils.m_to_pixels(goals[i], self.scale, self.origin)
@@ -306,6 +346,7 @@ class FrontierAssignmentCommander(TaskCommander):
         # 3. mtsp
         rospy.loginfo("Starting task allocator")
 
+        self.task_graph_client()
         for name in self.agent_active_status:
             listener.setBusyStatus(name)
         self.reassign(solver)
@@ -315,7 +356,6 @@ class FrontierAssignmentCommander(TaskCommander):
             if len(self.frontiers) == 0:
                 continue
 
-            no_frontiers_count = 0
             agent_reached = 0
             for name in self.agent_active_status:
                 agent_reached = listener.getStatus(name)
@@ -324,9 +364,11 @@ class FrontierAssignmentCommander(TaskCommander):
                     break
 
             if self.timer_flag or agent_reached == 2:
+                self.task_graph_client()
                 for name in self.agent_active_status:
                     listener.setBusyStatus(name)
                 self.reassign(solver)
+                self.send_visited_to_task_graph()
                 self.timer_flag = False
 
             self.rate.sleep()
