@@ -20,7 +20,7 @@ public:
     {
         if (children_.find(child) == children_.end())
         {
-            ROS_INFO("Child %d does not exist, cannot remove.", child);
+            ROS_DEBUG("Child %d does not exist, cannot remove.", child);
             return;
         }
         children_.erase(child);

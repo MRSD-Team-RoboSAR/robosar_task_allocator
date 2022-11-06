@@ -19,7 +19,7 @@ public:
     {
         if (nodes_.find(id) == nodes_.end())
         {
-            ROS_INFO("Node ID %d does not exist, cannot get.", id);
+            ROS_DEBUG("Node ID %d does not exist, cannot get.", id);
             return nullptr;
         }
         return nodes_[id];
@@ -38,7 +38,7 @@ public:
     {
         if (nodes_.find(id) == nodes_.end())
         {
-            ROS_INFO("Node ID %d does not exist, cannot remove.", id);
+            ROS_DEBUG("Node ID %d does not exist, cannot remove.", id);
             return;
         }
         auto curr_node = get_node(id);

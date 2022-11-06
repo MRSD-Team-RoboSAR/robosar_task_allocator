@@ -249,15 +249,15 @@ class TA_frontier_greedy:
         dist_cost = robot_info.costs / np.max(robot_info.costs)
         n_utility = self.env.get_utility_arr_from_ntasks(robot_info.n_tasks)
         cost_fn = (
-            0.4 * dist_cost
-            - 0.3 * n_utility
+            0.6 * dist_cost
+            - 0.4 * n_utility
             # + 0.2 * robot_info.obstacle_costs
-            - 0.1 * robot_info.proximity_bonus
+            # - 0.1 * robot_info.proximity_bonus
         )
         print("costs: ", robot_info.costs)
         print("utility: ", n_utility)
-        print("obs: ", robot_info.obstacle_costs)
-        print("prox: ", robot_info.proximity_bonus)
+        # print("obs: ", robot_info.obstacle_costs)
+        # print("prox: ", robot_info.proximity_bonus)
         print("tot: ", cost_fn)
         # get least cost node
         min_node_list = np.argsort(cost_fn)
@@ -267,7 +267,7 @@ class TA_frontier_greedy:
                 min_node = robot_info.n_tasks[i]
                 min_node.visited = True
                 break
-        if min_node is not None:
+        if min_node is None:
             # TODO: add use euclidean distance
             print("{} unused".format(name))
             return min_node

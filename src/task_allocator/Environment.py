@@ -140,6 +140,13 @@ class UnknownEnvironment:
                 visited.append(id)
         return visited
 
+    def get_visited_coverage_tasks_pos(self):
+        visited = []
+        for ct in self.coverage_tasks_dict.values():
+            if ct.visited:
+                visited.append(ct.pos)
+        return np.array(visited)
+
     def get_unvisited_coverage_tasks(self):
         unvisited = []
         for id, ct in self.coverage_tasks_dict.items():

@@ -28,15 +28,15 @@ class RobotInfo:
         self.n_tasks = n_tasks
         self.costs = costs
         self.utility = []
-        self.obstacle_costs = []
-        self.proximity_bonus = []
+        # self.obstacle_costs = []
+        # self.proximity_bonus = []
 
 
 class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
         reassign_period = rospy.get_param("~reassign_period", 30.0)
-        self.utility_range = rospy.get_param("~utility_range", 2.0)
+        self.utility_range = rospy.get_param("~utility_range", 1.5)
         timer = rospy.Timer(rospy.Duration(reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
@@ -48,6 +48,9 @@ class FrontierAssignmentCommander(TaskCommander):
         self.map_data = None
         self.robot_info_dict = {}  # type: dict[str, RobotInfo]
         self.env = None  # type: UnknownEnvironment
+        self.gmap = None  # type: OccupancyGridMap
+        self.downsample = 2
+        self.n = 5
 
     def task_graph_client(self):
         task_ids = []
@@ -82,7 +85,6 @@ class FrontierAssignmentCommander(TaskCommander):
             task_graph_getter_service(visited_ids)
         except rospy.ServiceException as e:
             print("task graph getter service call failed: %s" % e)
-        print("visited IDs: ", visited_ids)
 
     def timer_flag_callback(self, event=None):
         self.timer_flag = True
@@ -154,14 +156,14 @@ class FrontierAssignmentCommander(TaskCommander):
             pc = 1.0 - (min_range_to_occ / r)
         return pc
 
-    def a_star_cost(self, start, goal, gmap, downsample):
+    def a_star_cost(self, start, goal):
         start = utils.m_to_pixels(start, self.scale, self.origin)
         goal = utils.m_to_pixels(goal, self.scale, self.origin)
-        start_flip = [start[1] / downsample, start[0] / downsample]
-        goal_flip = [goal[1] / downsample, goal[0] / downsample]
-        _, _, cost = a_star(start_flip, goal_flip, gmap, movement="8N")
-        gmap.visited = np.zeros(gmap.dim_cells, dtype=np.float32)
-        return cost * self.scale * downsample
+        start_flip = [start[1] / self.downsample, start[0] / self.downsample]
+        goal_flip = [goal[1] / self.downsample, goal[0] / self.downsample]
+        _, _, cost = a_star(start_flip, goal_flip, self.gmap, movement="8N")
+        self.gmap.visited = np.zeros(self.gmap.dim_cells, dtype=np.float32)
+        return cost * self.scale * self.downsample
 
     def proximity_bonus(self, node, prev, r):
         if prev is None:
@@ -172,8 +174,42 @@ class FrontierAssignmentCommander(TaskCommander):
             p = 1.0 - (dist / r)
         return p
 
-    def reassign(self, solver):
-        print("Reassigning")
+    def prepare_costs(self, robot_id):
+        rp = self.robot_info_dict[robot_id].pos
+        print(rp)
+        # only calculate rrt cost for n euclidean closest frontiers
+        n_tasks = self.env.get_n_closest_tasks(n=self.n, robot_pos=rp)
+        costs = []
+        # obstacle_costs = []
+        # prox_bonus = []
+        print("robot {} calcs".format(robot_id))
+        for task in n_tasks:
+            task_pos = task.pos
+            # # RRT path
+            # cost = self.rrt_path_cost_client(
+            #     rp[0], rp[1], task_pos[0], task_pos[1]
+            # )
+            # # Euclidean
+            # cost = np.linalg.norm(rp - task_pos)
+            # A* path
+            cost = self.a_star_cost(rp, task_pos)
+            # pc = self.obstacle_cost(task_pos, 1.0)
+            # pb = 0.0
+            # if self.robot_info_dict[robot_id].prev is not None:
+            #     pb = self.proximity_bonus(
+            #         task_pos, self.robot_info_dict[rrobot_id.prev.pos, 2.0
+            # )
+            costs.append(cost)
+            # obstacle_costs.append(pc)
+            # prox_bonus.append(pb)
+        # update robot infos
+        self.robot_info_dict[robot_id].prev = self.robot_info_dict[robot_id].curr
+        self.robot_info_dict[robot_id].n_tasks = n_tasks
+        self.robot_info_dict[robot_id].costs = np.array(costs)
+        # self.robot_info_dict[robot_id].obstacle_costs = np.array(obstacle_costs)
+        # self.robot_info_dict[robot_id].proximity_bonus = np.array(prox_bonus)
+
+    def prepare_env(self):
         # get frontiers
         try:
             msg = rospy.wait_for_message(
@@ -190,102 +226,77 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # get map
         _, self.map_data, self.scale, self.origin = self.get_map_info()
-        downsample = 2
         robot_pos = self.get_agent_position()
+        for r, rp in robot_pos.items():
+            self.robot_info_dict[r].pos = rp
         resized_image = skimage.measure.block_reduce(
-            self.map_data, (downsample, downsample), np.max
+            self.map_data, (self.downsample, self.downsample), np.max
         )
-        gmap = OccupancyGridMap.from_data(resized_image)
+        self.gmap = OccupancyGridMap.from_data(resized_image)
 
         # update env
         self.env.update_tasks(self.frontiers, self.coverage_tasks)
-        unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
+
+    def reassign(self, name, solver):
+        print("Reassigning")
 
         # get costs
-        for r, rp in robot_pos.items():
-            # only calculate rrt cost for n euclidean closest frontiers
-            n_tasks = self.env.get_n_closest_tasks(n=8, robot_pos=rp)
-            costs = []
-            obstacle_costs = []
-            prox_bonus = []
-            print("robot {} calcs".format(r))
-            for task in n_tasks:
-                task_pos = task.pos
-                # # RRT path
-                # cost = self.rrt_path_cost_client(
-                #     rp[0], rp[1], task_pos[0], task_pos[1]
-                # )
-                # # Euclidean
-                # cost = np.linalg.norm(rp - task_pos)
-                # A* path
-                cost = self.a_star_cost(rp, task_pos, gmap, downsample)
-                pc = self.obstacle_cost(task_pos, 1.0)
-                pb = self.proximity_bonus(task_pos, self.robot_info_dict[r].prev, 2.0)
-                costs.append(cost)
-                obstacle_costs.append(pc)
-                prox_bonus.append(pb)
-            print("done")
-            # update robot infos
-            self.robot_info_dict[r].name = r
-            self.robot_info_dict[r].prev = self.robot_info_dict[r].curr
-            self.robot_info_dict[r].pos = rp
-            self.robot_info_dict[r].n_tasks = n_tasks
-            self.robot_info_dict[r].costs = np.array(costs)
-            self.robot_info_dict[r].obstacle_costs = np.array(obstacle_costs)
-            self.robot_info_dict[r].proximity_bonus = np.array(prox_bonus)
-
+        self.prepare_costs(name)
         self.env.update_robot_info(self.robot_info_dict)
 
         # get assignment
-        names = []
-        starts = []
-        goals = []
-        for name in self.agent_active_status:
-            goal = solver.assign(name)
-            if goal is not None:
-                self.robot_info_dict[r].curr = goal.pos
-                names.append(name)
-                starts.append(robot_pos[name])
-                goals.append(goal.pos)
-                # update utility
-                self.env.update_utility(goal, self.utility_discount_fn)
+        goal = solver.assign(name)
+        if goal is not None:
+            self.robot_info_dict[name].curr = goal
+            # update utility
+            self.env.update_utility(goal, self.utility_discount_fn)
+            return name, self.robot_info_dict[name].pos, goal.pos
 
-        if len(names) > 0:
-            # publish tasks
-            rospy.loginfo("publishing")
-            task_msg = task_allocation()
-            task_msg.id = [n for n in names]
-            task_msg.startx = [s[0] for s in starts]
-            task_msg.starty = [s[1] for s in starts]
-            task_msg.goalx = [g[0] for g in goals]
-            task_msg.goaly = [g[1] for g in goals]
-            while self.task_pub.get_num_connections() == 0:
-                rospy.loginfo("Waiting for subscriber to task topic:")
-                rospy.sleep(1)
-            self.task_pub.publish(task_msg)
+        return "", [], []
 
-            # plot
-            plt.clf()
-            utils.plot_pgm_data(self.map_data)
+    def publish_visualize(
+        self, names, starts, goals, unvisited_coverage=[], visited_coverage=[]
+    ):
+        # publish tasks
+        rospy.loginfo("publishing")
+        task_msg = task_allocation()
+        task_msg.id = [n for n in names]
+        task_msg.startx = [s[0] for s in starts]
+        task_msg.starty = [s[1] for s in starts]
+        task_msg.goalx = [g[0] for g in goals]
+        task_msg.goaly = [g[1] for g in goals]
+        while self.task_pub.get_num_connections() == 0:
+            rospy.loginfo("Waiting for subscriber to task topic:")
+            rospy.sleep(1)
+        self.task_pub.publish(task_msg)
+
+        # plot
+        plt.clf()
+        utils.plot_pgm_data(self.map_data)
+        if len(self.frontiers) > 0:
             pix_frontier = self.arr_m_to_pixels(self.frontiers)
             plt.plot(pix_frontier[:, 0], pix_frontier[:, 1], "go", zorder=100)
-            if len(unvisited_coverage) > 0:
-                pix_coverage = self.arr_m_to_pixels(unvisited_coverage)
-                plt.plot(pix_coverage[:, 0], pix_coverage[:, 1], "bo", zorder=100)
-            for i in range(len(names)):
-                pix_rob = utils.m_to_pixels(starts[i], self.scale, self.origin)
-                pix_goal = utils.m_to_pixels(goals[i], self.scale, self.origin)
-                plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
-                plt.plot(
-                    [pix_rob[0], pix_goal[0]],
-                    [pix_rob[1], pix_goal[1]],
-                    "k-",
-                    zorder=90,
-                )
-            self.publish_image(self.image_pub)
-            return True
-
-        return False
+        if len(unvisited_coverage) > 0:
+            pix_coverage = self.arr_m_to_pixels(unvisited_coverage)
+            plt.plot(pix_coverage[:, 0], pix_coverage[:, 1], "co", zorder=100)
+        if len(visited_coverage) > 0:
+            pix_coverage = self.arr_m_to_pixels(visited_coverage)
+            plt.plot(pix_coverage[:, 0], pix_coverage[:, 1], "bo", zorder=100)
+        for id in self.agent_active_status:
+            pix_rob = utils.m_to_pixels(
+                self.robot_info_dict[id].pos, self.scale, self.origin
+            )
+            pix_goal = utils.m_to_pixels(
+                self.robot_info_dict[id].curr.pos, self.scale, self.origin
+            )
+            plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
+            plt.plot(
+                [pix_rob[0], pix_goal[0]],
+                [pix_rob[1], pix_goal[1]],
+                "k-",
+                zorder=90,
+            )
+        self.publish_image(self.image_pub)
 
     def execute(self):
         """
@@ -324,7 +335,7 @@ class FrontierAssignmentCommander(TaskCommander):
         solver = TA_frontier_greedy(self.env)
 
         # Create listener object
-        listener = TaskListenerRobosarControl(
+        task_listener = TaskListenerRobosarControl(
             [name for name in self.agent_active_status]
         )
 
@@ -347,29 +358,66 @@ class FrontierAssignmentCommander(TaskCommander):
         rospy.loginfo("Starting task allocator")
 
         self.task_graph_client()
+        self.prepare_env()
+        names = []
+        starts = []
+        goals = []
         for name in self.agent_active_status:
-            listener.setBusyStatus(name)
-        self.reassign(solver)
+            task_listener.setBusyStatus(name)
+            name, start, goal = self.reassign(name, solver)
+            names.append(name)
+            starts.append(start)
+            goals.append(goal)
+        if len(names) > 0:
+            self.publish_visualize(names, starts, goals)
         self.timer_flag = False
 
         while not rospy.is_shutdown():
             if len(self.frontiers) == 0:
                 continue
 
-            agent_reached = 0
+            agent_reached = {name: False for name in self.agent_active_status}
+            agent_reached_flag = False
             for name in self.agent_active_status:
-                agent_reached = listener.getStatus(name)
-                if agent_reached == 2:
-                    # print("agent {} reached".format(name))
-                    break
+                status = task_listener.getStatus(name)
+                if status == 2:
+                    agent_reached[name] = True
+                    agent_reached_flag = True
 
-            if self.timer_flag or agent_reached == 2:
+            if self.timer_flag or agent_reached_flag:
+                # get new coverage tasks
                 self.task_graph_client()
+
+                # prepare env
+                self.prepare_env()
+
+                unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
+                visited_coverage = self.env.get_visited_coverage_tasks_pos()
+                print("visited: ", visited_coverage)
+                print("unvisited: ", unvisited_coverage)
+
+                # reassign
+                names = []
+                starts = []
+                goals = []
                 for name in self.agent_active_status:
-                    listener.setBusyStatus(name)
-                self.reassign(solver)
+                    if (
+                        self.robot_info_dict[name].curr.task_type == "coverage"
+                        and not agent_reached[name]
+                    ):
+                        continue
+                    task_listener.setBusyStatus(name)
+                    name, start, goal = self.reassign(name, solver)
+                    names.append(name)
+                    starts.append(start)
+                    goals.append(goal)
                 self.send_visited_to_task_graph()
                 self.timer_flag = False
+
+                if len(names) > 0:
+                    self.publish_visualize(
+                        names, starts, goals, unvisited_coverage, visited_coverage
+                    )
 
             self.rate.sleep()
 
