@@ -37,6 +37,7 @@ class FrontierFilter:
         self.namespace = rospy.get_param("~namespace", "")
         rateHz = rospy.get_param("~rate", 2)
         self.robot_frame = rospy.get_param("~robot_frame", "agent1/base_link")
+        self.geofence = [-0.5, 12.0, -10.0, 2.0] # x_min, x_max, y_min, y_max
 
         self.rate = rospy.Rate(rateHz)
         rospy.Subscriber(self.map_topic, OccupancyGrid, self.mapCallback)
@@ -96,7 +97,7 @@ class FrontierFilter:
         return points_clust
 
     def is_valid_frontier(self, node):
-        if node[0] > -0.5 and node[0] < 12.0 and node[1] > -10.0 and node[1] < 2.0:
+        if node[0] > self.geofence[0] and node[0] < self.geofence[1] and node[1] > self.geofence[2] and node[1] < self.geofence[3]:
             return True
         return False
 
@@ -197,7 +198,7 @@ class FrontierFilter:
                         and not self.check_centroid_to_rrt_collision(
                             c, idx, labels, possible_frontiers
                         )
-                        # and self.is_valid_frontier(x)
+                        and self.is_valid_frontier(x)
                     ):
                         centroids_filtered.append(c)
                 self.filtered_frontiers = copy(centroids_filtered)
