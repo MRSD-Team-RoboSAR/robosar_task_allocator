@@ -100,7 +100,7 @@ class FrontierFilter:
             return True
         return False
 
-    def obstacle_free(self, xnear, xnew):
+    def check_edge_collision(self, xnear, xnew):
         rez = float(self.mapData.info.resolution) * 0.2
         stepz = int(np.ceil(functions.Norm(xnew[0], xnew[1], xnear[0], xnear[1])) / rez)
         xi = xnear
@@ -128,13 +128,13 @@ class FrontierFilter:
 
         return out
 
-    def check_obs_intersection(self, centroid, label, cluster_labels, frontiers):
+    def check_centroid_to_rrt_collision(self, centroid, label, cluster_labels, frontiers):
         points = []
         for idx, l in enumerate(cluster_labels):
             if l == label:
                 points.append(frontiers[idx])
         for p in points:
-            if self.obstacle_free(p, centroid) == 0:
+            if self.check_edge_collision(p, centroid) == 0:
                 return True
         return False
 
@@ -194,7 +194,7 @@ class FrontierFilter:
                             self.mapData, [x[0], x[1]], self.info_radius
                         )
                         > 0.15
-                        and not self.check_obs_intersection(
+                        and not self.check_centroid_to_rrt_collision(
                             c, idx, labels, possible_frontiers
                         )
                         # and self.is_valid_frontier(x)

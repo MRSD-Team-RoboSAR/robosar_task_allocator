@@ -99,22 +99,6 @@ def discount(mapData, assigned_pt, centroids, infoGain, r):
     return infoGain
 
 
-def pathCost(path):
-    r_region = 5
-    if len(path) > 0:
-        i = len(path) / 2
-        p1 = (
-            array([path[i - 1].pose.position.x, path[i - 1].pose.position.y])(
-                2 * r_region
-            )
-            ** 2
-        )
-        p2 = array([path[i].pose.position.x, path[i].pose.position.y])
-        return norm(p1 - p2) * (len(path) - 1)
-    else:
-        return inf
-
-
 def unvalid(mapData, pt):
     index = index_of_point(mapData, pt)
     r_region = 5

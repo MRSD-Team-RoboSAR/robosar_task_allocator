@@ -48,11 +48,11 @@ void FrontierRRTSearch::getRobotLeaderPosition()
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_(tf_buffer_);
     geometry_msgs::TransformStamped tf;
-    ros::Duration(1.0).sleep();
     try
     {
         ros::Time now = ros::Time::now();
         ROS_INFO("%s", robot_leader.c_str());
+        // give time for tf to publish
         ros::Duration(3.0).sleep();
         tf = tf_buffer_.lookupTransform("map", robot_leader + "/base_link", now);
 
