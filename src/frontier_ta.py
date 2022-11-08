@@ -365,9 +365,10 @@ class FrontierAssignmentCommander(TaskCommander):
         for name in self.agent_active_status:
             task_listener.setBusyStatus(name)
             name, start, goal = self.reassign(name, solver)
-            names.append(name)
-            starts.append(start)
-            goals.append(goal)
+            if len(name) > 0:
+                names.append(name)
+                starts.append(start)
+                goals.append(goal)
         if len(names) > 0:
             self.publish_visualize(names, starts, goals)
         self.timer_flag = False
@@ -408,9 +409,10 @@ class FrontierAssignmentCommander(TaskCommander):
                         continue
                     task_listener.setBusyStatus(name)
                     name, start, goal = self.reassign(name, solver)
-                    names.append(name)
-                    starts.append(start)
-                    goals.append(goal)
+                    if len(name) > 0:
+                        names.append(name)
+                        starts.append(start)
+                        goals.append(goal)
                 self.send_visited_to_task_graph()
                 self.timer_flag = False
 
