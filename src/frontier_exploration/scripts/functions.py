@@ -49,7 +49,7 @@ def point_of_index(mapData, i):
     return array([x, y])
 
 
-def informationGain(mapData, point, r):
+def informationGain(mapData, point, r, occ_threshold):
     r_region = int(floor(r / mapData.info.resolution))
     map2 = np.reshape(mapData.data, (mapData.info.height, mapData.info.width))
     x, y = index_2d_of_point(mapData, point)
@@ -60,10 +60,10 @@ def informationGain(mapData, point, r):
 
     area = map2[x_min:x_max, y_min:y_max]
     seed = (min(x, x_max - 1) - x_min, min(y, y_max - 1) - y_min)
-    mask = flood(area, seed, tolerance=1)
+    mask = flood(area, seed, tolerance=occ_threshold)
 
     contains_free = np.array(mask == 1) & np.array(
-        area == 0
+        area < occ_threshold
     )  # if flood fill contains free space
     if np.any(contains_free):
         info_mask = np.array(mask == 1) & np.array(

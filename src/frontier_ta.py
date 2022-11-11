@@ -11,12 +11,13 @@ from robosar_messages.srv import *
 from sensor_msgs.msg import Image
 
 import task_allocator.utils as utils
-from generate_graph.gridmap import OccupancyGridMap
 from generate_graph.a_star import a_star
+from generate_graph.gridmap import OccupancyGridMap
 from task_allocator.Environment import UnknownEnvironment
 from task_allocator.TA import *
 from task_commander import TaskCommander
-from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
+from task_transmitter.task_listener_robosar_control import \
+    TaskListenerRobosarControl
 
 
 class RobotInfo:
@@ -250,12 +251,15 @@ class FrontierAssignmentCommander(TaskCommander):
             self.robot_info_dict[name].curr = goal
             # update utility
             self.env.update_utility(goal, self.utility_discount_fn)
-            return name, self.robot_info_dict[name].pos, goal.pos
+            task_type = 1
+            if goal.task_type == "coverage":
+                task_type = 2
+            return name, self.robot_info_dict[name].pos, goal.pos, task_type
 
-        return "", [], []
+        return "", [], [], None
 
     def publish_visualize(
-        self, names, starts, goals, unvisited_coverage=[], visited_coverage=[]
+        self, names, starts, goals, goal_type, unvisited_coverage=[], visited_coverage=[]
     ):
         # publish tasks
         rospy.loginfo("publishing")
@@ -265,6 +269,7 @@ class FrontierAssignmentCommander(TaskCommander):
         task_msg.starty = [s[1] for s in starts]
         task_msg.goalx = [g[0] for g in goals]
         task_msg.goaly = [g[1] for g in goals]
+        task_msg.goal_type = [t for t in goal_type]
         while self.task_pub.get_num_connections() == 0:
             rospy.loginfo("Waiting for subscriber to task topic:")
             rospy.sleep(1)
@@ -362,15 +367,17 @@ class FrontierAssignmentCommander(TaskCommander):
         names = []
         starts = []
         goals = []
+        goal_types = []
         for name in self.agent_active_status:
             task_listener.setBusyStatus(name)
-            name, start, goal = self.reassign(name, solver)
+            name, start, goal, goal_type = self.reassign(name, solver)
             if len(name) > 0:
                 names.append(name)
                 starts.append(start)
                 goals.append(goal)
+                goal_types.append(goal_type)
         if len(names) > 0:
-            self.publish_visualize(names, starts, goals)
+            self.publish_visualize(names, starts, goals, goal_types)
         self.timer_flag = False
 
         while not rospy.is_shutdown():
@@ -401,6 +408,7 @@ class FrontierAssignmentCommander(TaskCommander):
                 names = []
                 starts = []
                 goals = []
+                goal_types = []
                 for name in self.agent_active_status:
                     if (
                         self.robot_info_dict[name].curr.task_type == "coverage"
@@ -408,17 +416,18 @@ class FrontierAssignmentCommander(TaskCommander):
                     ):
                         continue
                     task_listener.setBusyStatus(name)
-                    name, start, goal = self.reassign(name, solver)
+                    name, start, goal, goal_type = self.reassign(name, solver)
                     if len(name) > 0:
                         names.append(name)
                         starts.append(start)
                         goals.append(goal)
+                        goal_types.append(goal_type)
                 self.send_visited_to_task_graph()
                 self.timer_flag = False
 
                 if len(names) > 0:
                     self.publish_visualize(
-                        names, starts, goals, unvisited_coverage, visited_coverage
+                        names, starts, goals, goal_types, unvisited_coverage, visited_coverage
                     )
 
             self.rate.sleep()
