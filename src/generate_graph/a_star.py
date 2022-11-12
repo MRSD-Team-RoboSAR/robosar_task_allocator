@@ -84,7 +84,7 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     # get array indices of start and goal
     start = gmap.get_index_from_coordinates(start_m[0], start_m[1])
     goal = gmap.get_index_from_coordinates(goal_m[0], goal_m[1])
-    print("goal: ", goal)
+    # print("goal: ", goal)
 
     # check if start and goal nodes correspond to free spaces
     if gmap.is_occupied_idx(start):
@@ -116,7 +116,7 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     # while there are elements to investigate in our front.
     iter = 0
     while front:
-        if iter == 10000:
+        if iter >= 10000:
             print("WARN: astar timeout")
             return [], [], 5 * math.dist(start, goal)
         # get smallest item and remove from front.
@@ -162,24 +162,27 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
                 heappush(front, (new_total_cost_to_goal, new_cost, new_pos, pos))
         iter += 1
 
+
+    if pos != goal:
+        return [], [], 5 * math.dist(start, goal)
+        
     # reconstruct path backwards (only if we reached the goal)
     path = []
     path_idx = []
-    if pos == goal:
-        pos_m_x = None
-        while pos:
-            path_idx.append(pos)
-            if pos_m_x is None:
-                total_dist = 0.0
-            else:
-                total_dist += math.dist([pos_m_x, pos_m_y], [pos[0], pos[1]])
-            # transform array indices to meters
-            pos_m_x, pos_m_y = gmap.get_coordinates_from_index(pos[0], pos[1])
-            path.append((pos_m_x, pos_m_y))
-            pos = came_from[pos]
+    pos_m_x = None
+    while pos:
+        path_idx.append(pos)
+        if pos_m_x is None:
+            total_dist = 0.0
+        else:
+            total_dist += math.dist([pos_m_x, pos_m_y], [pos[0], pos[1]])
+        # transform array indices to meters
+        pos_m_x, pos_m_y = gmap.get_coordinates_from_index(pos[0], pos[1])
+        path.append((pos_m_x, pos_m_y))
+        pos = came_from[pos]
 
-        # reverse so that path is from start to goal.
-        path.reverse()
-        path_idx.reverse()
+    # reverse so that path is from start to goal.
+    path.reverse()
+    path_idx.reverse()
 
     return path, path_idx, total_dist

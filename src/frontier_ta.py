@@ -16,8 +16,7 @@ from generate_graph.gridmap import OccupancyGridMap
 from task_allocator.Environment import UnknownEnvironment
 from task_allocator.TA import *
 from task_commander import TaskCommander
-from task_transmitter.task_listener_robosar_control import \
-    TaskListenerRobosarControl
+from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 
 
 class RobotInfo:
@@ -57,7 +56,7 @@ class FrontierAssignmentCommander(TaskCommander):
         task_ids = []
         points = []
         task_types = []
-        print("calling task graph getter service")
+        # print("calling task graph getter service")
         rospy.wait_for_service("/robosar_task_generator/task_graph_getter")
         try:
             task_graph_getter_service = rospy.ServiceProxy(
@@ -77,7 +76,7 @@ class FrontierAssignmentCommander(TaskCommander):
 
     def send_visited_to_task_graph(self):
         visited_ids = self.env.get_visited_coverage_tasks()
-        print("calling task graph setter service")
+        # print("calling task graph setter service")
         rospy.wait_for_service("/robosar_task_generator/task_graph_setter")
         try:
             task_graph_getter_service = rospy.ServiceProxy(
@@ -177,13 +176,12 @@ class FrontierAssignmentCommander(TaskCommander):
 
     def prepare_costs(self, robot_id):
         rp = self.robot_info_dict[robot_id].pos
-        print(rp)
+        # print(rp)
         # only calculate rrt cost for n euclidean closest frontiers
         n_tasks = self.env.get_n_closest_tasks(n=self.n, robot_pos=rp)
         costs = []
         obstacle_costs = []
         # prox_bonus = []
-        print("robot {} calcs".format(robot_id))
         for task in n_tasks:
             task_pos = task.pos
             # # RRT path
@@ -237,9 +235,10 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # update env
         self.env.update_tasks(self.frontiers, self.coverage_tasks)
+        return True
 
     def reassign(self, name, solver):
-        print("Reassigning")
+        # print("Reassigning")
 
         # get costs
         self.prepare_costs(name)
@@ -254,12 +253,18 @@ class FrontierAssignmentCommander(TaskCommander):
             task_type = 1
             if goal.task_type == "coverage":
                 task_type = 2
-            return name, self.robot_info_dict[name].pos, goal.pos, task_type
+            return self.robot_info_dict[name].pos, goal.pos, task_type
 
-        return "", [], [], None
+        return [], [], None
 
     def publish_visualize(
-        self, names, starts, goals, goal_type, unvisited_coverage=[], visited_coverage=[]
+        self,
+        names,
+        starts,
+        goals,
+        goal_type,
+        unvisited_coverage=[],
+        visited_coverage=[],
     ):
         # publish tasks
         rospy.loginfo("publishing")
@@ -291,16 +296,17 @@ class FrontierAssignmentCommander(TaskCommander):
             pix_rob = utils.m_to_pixels(
                 self.robot_info_dict[id].pos, self.scale, self.origin
             )
-            pix_goal = utils.m_to_pixels(
-                self.robot_info_dict[id].curr.pos, self.scale, self.origin
-            )
-            plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
-            plt.plot(
-                [pix_rob[0], pix_goal[0]],
-                [pix_rob[1], pix_goal[1]],
-                "k-",
-                zorder=90,
-            )
+            if self.robot_info_dict[id].curr is not None:
+                pix_goal = utils.m_to_pixels(
+                    self.robot_info_dict[id].curr.pos, self.scale, self.origin
+                )
+                plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
+                plt.plot(
+                    [pix_rob[0], pix_goal[0]],
+                    [pix_rob[1], pix_goal[1]],
+                    "k-",
+                    zorder=90,
+                )
         self.publish_image(self.image_pub)
 
     def execute(self):
@@ -369,19 +375,20 @@ class FrontierAssignmentCommander(TaskCommander):
         goals = []
         goal_types = []
         for name in self.agent_active_status:
-            task_listener.setBusyStatus(name)
-            name, start, goal, goal_type = self.reassign(name, solver)
-            if len(name) > 0:
+            start, goal, goal_type = self.reassign(name, solver)
+            if len(start) > 0:
                 names.append(name)
                 starts.append(start)
                 goals.append(goal)
                 goal_types.append(goal_type)
+                task_listener.setBusyStatus(name)
         if len(names) > 0:
             self.publish_visualize(names, starts, goals, goal_types)
         self.timer_flag = False
 
         while not rospy.is_shutdown():
-            if len(self.frontiers) == 0:
+            # get frontiers
+            if not self.prepare_env():
                 continue
 
             agent_reached = {name: False for name in self.agent_active_status}
@@ -396,13 +403,10 @@ class FrontierAssignmentCommander(TaskCommander):
                 # get new coverage tasks
                 self.task_graph_client()
 
-                # prepare env
-                self.prepare_env()
-
                 unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
                 visited_coverage = self.env.get_visited_coverage_tasks_pos()
-                print("visited: ", visited_coverage)
-                print("unvisited: ", unvisited_coverage)
+                # print("visited: ", visited_coverage)
+                # print("unvisited: ", unvisited_coverage)
 
                 # reassign
                 names = []
@@ -411,23 +415,30 @@ class FrontierAssignmentCommander(TaskCommander):
                 goal_types = []
                 for name in self.agent_active_status:
                     if (
-                        self.robot_info_dict[name].curr.task_type == "coverage"
+                        self.robot_info_dict[name].curr
+                        and self.robot_info_dict[name].curr.task_type == "coverage"
                         and not agent_reached[name]
                     ):
                         continue
-                    task_listener.setBusyStatus(name)
-                    name, start, goal, goal_type = self.reassign(name, solver)
-                    if len(name) > 0:
+                    start, goal, goal_type = self.reassign(name, solver)
+                    if len(start) > 0:
                         names.append(name)
                         starts.append(start)
                         goals.append(goal)
                         goal_types.append(goal_type)
+                        task_listener.setBusyStatus(name)
+                    # print("{}: status {}".format(name, task_listener.getStatus(name)))
                 self.send_visited_to_task_graph()
                 self.timer_flag = False
 
                 if len(names) > 0:
                     self.publish_visualize(
-                        names, starts, goals, goal_types, unvisited_coverage, visited_coverage
+                        names,
+                        starts,
+                        goals,
+                        goal_types,
+                        unvisited_coverage,
+                        visited_coverage,
                     )
 
             self.rate.sleep()

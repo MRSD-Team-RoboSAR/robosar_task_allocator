@@ -54,7 +54,7 @@ class TaskCommander(ABC):
         """
         Updates agent_active_status
         """
-        rospy.loginfo("Starting mTSP allocator")
+        rospy.loginfo("Starting task allocator")
         rospy.loginfo("calling agent status service")
         rospy.wait_for_service("/robosar_agent_bringup_node/agent_status")
         try:
@@ -75,18 +75,18 @@ class TaskCommander(ABC):
         """
         Gets map message
         """
-        rospy.loginfo("Waiting for map")
-        map_msg = rospy.wait_for_message("/map", OccupancyGrid)
-        rospy.loginfo("Map received")
+        rospy.logdebug("Waiting for map")
+        map_msg = rospy.wait_for_message("/slam_toolbox/map", OccupancyGrid)
+        rospy.logdebug("Map received")
         scale = map_msg.info.resolution
         origin = [map_msg.info.origin.position.x, map_msg.info.origin.position.y]
-        rospy.loginfo("map origin: {}".format(origin))
+        rospy.logdebug("map origin: {}".format(origin))
         data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
         free_space = 0
         for cell in map_msg.data:
             if 0 <= cell < 100:
                 free_space += 1
-        rospy.loginfo("Map Area: {}".format(free_space * scale * scale))
+        rospy.logdebug("Map Area: {}".format(free_space * scale * scale))
         return map_msg, data, scale, origin
 
     def publish_image(self, image_pub):

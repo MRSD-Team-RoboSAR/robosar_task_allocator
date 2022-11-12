@@ -254,11 +254,11 @@ class TA_frontier_greedy:
             + 0.2 * robot_info.obstacle_costs
             # - 0.1 * robot_info.proximity_bonus
         )
-        print("costs: ", robot_info.costs)
-        print("utility: ", n_utility)
+        # print("costs: ", robot_info.costs)
+        # print("utility: ", n_utility)
         # print("obs: ", robot_info.obstacle_costs)
         # print("prox: ", robot_info.proximity_bonus)
-        print("tot: ", cost_fn)
+        # print("tot: ", cost_fn)
         # get least cost node
         min_node_list = np.argsort(cost_fn)
         min_node = None
