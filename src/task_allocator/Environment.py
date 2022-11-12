@@ -166,7 +166,7 @@ class UnknownEnvironment:
         goal_pos = goal.pos
         for i in range(len(self.available_tasks)):
             node_pos = self.available_tasks[i].pos
-            p = utility_discount_fn(self.euclidean(goal_pos, node_pos))
+            p = utility_discount_fn(goal_pos, node_pos)
             self.available_tasks[i].utility -= p
 
     def reset_utility(self):

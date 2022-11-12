@@ -16,6 +16,7 @@ from generate_graph.gridmap import OccupancyGridMap
 from task_allocator.Environment import UnknownEnvironment
 from task_allocator.TA import *
 from task_commander import TaskCommander
+from robosar_task_generator.functions import check_edge_collision
 from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 
 
@@ -46,6 +47,7 @@ class FrontierAssignmentCommander(TaskCommander):
         self.coverage_tasks = {}
         self.available_tasks = []
         self.map_data = None
+        self.map_msg = None
         self.robot_info_dict = {}  # type: dict[str, RobotInfo]
         self.env = None  # type: UnknownEnvironment
         self.gmap = None  # type: OccupancyGridMap
@@ -129,9 +131,11 @@ class FrontierAssignmentCommander(TaskCommander):
         except rospy.ServiceException as e:
             print("RRT path service call failed: %s" % e)
 
-    def utility_discount_fn(self, dist):
+    def utility_discount_fn(self, goal_pos, node_pos):
         p = 0.0
-        if dist < self.utility_range:
+        dist = np.linalg.norm([goal_pos[0] - node_pos[0], goal_pos[1] - node_pos[1]])
+        # within utility range and not separated by obstacle
+        if dist < self.utility_range and check_edge_collision(goal_pos, node_pos, self.map_msg) != 0:
             p = 1.0 - (float(dist) / self.utility_range)
         return p
 
@@ -317,7 +321,7 @@ class FrontierAssignmentCommander(TaskCommander):
         self.get_active_agents()
 
         # Get map
-        map_msg, self.map_data, self.scale, self.origin = self.get_map_info()
+        self.map_msg, self.map_data, self.scale, self.origin = self.get_map_info()
 
         # Get frontiers
         rospy.loginfo("Waiting for frontiers")
@@ -366,7 +370,7 @@ class FrontierAssignmentCommander(TaskCommander):
         # 1. greedy assignment
         # 2. hungarian assignment
         # 3. mtsp
-        rospy.loginfo("Starting task allocator")
+        rospy.loginfo("Starting frontier task allocator")
 
         self.task_graph_client()
         self.prepare_env()
@@ -419,6 +423,7 @@ class FrontierAssignmentCommander(TaskCommander):
                         and self.robot_info_dict[name].curr.task_type == "coverage"
                         and not agent_reached[name]
                     ):
+                        self.env.update_utility(self.robot_info_dict[name].curr, self.utility_discount_fn)
                         continue
                     start, goal, goal_type = self.reassign(name, solver)
                     if len(start) > 0:
