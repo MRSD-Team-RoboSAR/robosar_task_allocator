@@ -21,8 +21,9 @@ from task_transmitter.task_listener_robosar_control import TaskListenerRobosarCo
 
 
 class RobotInfo:
-    def __init__(self, pos=[], n_tasks=[], costs=[]) -> None:
-        self.name = ""
+    def __init__(self, name="", pos=[], n_tasks=[], costs=[]) -> None:
+        self.name = name
+        self.role = ""
         self.pos = pos
         self.curr = None
         self.prev = None
@@ -342,7 +343,7 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # Create TA
         for name in self.agent_active_status:
-            robot_info = RobotInfo(pos=robot_pos[name])
+            robot_info = RobotInfo(name=name, pos=robot_pos[name])
             self.robot_info_dict[name] = robot_info
         self.env = UnknownEnvironment(
             frontier_tasks=self.frontiers, robot_info=self.robot_info_dict

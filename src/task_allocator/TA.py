@@ -245,6 +245,8 @@ class TA_frontier_greedy:
     def assign(self, name):
         # (None) -> str, List[float], List[float]
         robot_info = self.robot_info_dict[name]
+        if len(robot_info.n_tasks) == 0:
+            return None
         # cost_fn
         dist_cost = robot_info.costs / np.max(robot_info.costs)
         n_utility = self.env.get_utility_arr_from_ntasks(robot_info.n_tasks)

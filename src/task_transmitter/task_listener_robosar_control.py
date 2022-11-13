@@ -34,7 +34,7 @@ class TaskListenerRobosarControl:
 
     def setBusyStatus(self, robot_id):
         if robot_id in self.status_map:
-            print("Set busy for {}".format(robot_id))
+            # print("Set busy for {}".format(robot_id))
             self.status_map[robot_id].setBusyStatus()
         else:
             rospy.logwarn(
