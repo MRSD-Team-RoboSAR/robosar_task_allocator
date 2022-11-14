@@ -268,7 +268,6 @@ class TA_frontier_greedy:
                 min_node.visited = True
                 break
         if min_node is None:
-            # TODO: add use euclidean distance
             print("{} unused".format(name))
             return min_node
 
