@@ -123,6 +123,7 @@ class UnknownEnvironment:
         self.robot_info_dict = robot_info
         # frontiers are rewritten every time update() is called
         self.frontier_tasks = frontier_tasks  # List[Task]
+        self.frontier_pos = [] # List[List[float]]
         # coverage tasks persist and are updated every time update() is called
         self.coverage_tasks_dict = {}  # Dict[int, Task]
         # total unvisited tasks
@@ -183,15 +184,28 @@ class UnknownEnvironment:
         task_pos = np.zeros((len(self.available_tasks), 2))
         for idx, task in enumerate(self.available_tasks):
             task_pos[idx, :] = task.pos
-        return task_pos
+        return task_pos        
 
-    def get_n_closest_tasks(self, n, robot_pos):
-        C = np.linalg.norm(self.get_available_task_pos() - robot_pos, axis=1)
+    def get_n_closest_tasks(self, n=5, robot_pos=[], goal_type=None):
+        if goal_type == "frontier":
+            tasks = np.array(self.frontier_pos)
+            tot_task_list = self.frontier_tasks
+        elif goal_type == "coverage":
+            tasks = np.array(self.get_unvisited_coverage_tasks_pos())
+            tot_task_list = [self.coverage_tasks_dict[id] for id in self.get_unvisited_coverage_tasks()]
+        else:
+            tasks = self.get_available_task_pos()
+            tot_task_list = self.available_tasks
+        if len(tasks) == 0:
+            print("no available {} tasks".format(goal_type))
+            return []
+        C = np.linalg.norm(tasks - robot_pos, axis=1)
         min_node_list = np.argsort(C)
         n_tasks_idx = min_node_list[:n]
-        return [self.available_tasks[t] for t in n_tasks_idx]
+        return [tot_task_list[t] for t in n_tasks_idx]
 
     def update_tasks(self, frontier_tasks, coverage_tasks_dict={}):
+        self.frontier_pos = frontier_tasks
         self.frontier_tasks = []
         for id, ft in enumerate(frontier_tasks):
             self.frontier_tasks.append(Task(task_type="frontier", pos=ft, id=id))
