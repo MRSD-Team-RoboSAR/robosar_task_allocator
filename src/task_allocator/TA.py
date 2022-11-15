@@ -8,13 +8,11 @@ Task Allocation classes
 from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
-
 # import mTSP_utils
 import numpy as np
-from scipy.optimize import linear_sum_assignment
-
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
+from scipy.optimize import linear_sum_assignment
 
 
 class TA(ABC):
@@ -28,7 +26,6 @@ class TA(ABC):
         env: Environment object
         """
         self.env = env
-        self.objective_value = [0] * len(self.env.robots)
 
     def reached(self, name, curr_node):
         """
@@ -62,6 +59,9 @@ class TA_greedy(TA):
     """
     TA_greedy: greedy task allocator
     """
+    def init(self, env):
+        super().init(env)
+        self.objective_value = [0] * len(self.env.robots)
 
     def assign(self, name, curr_node):
         # Find next unvisited min cost task
@@ -112,8 +112,8 @@ class TA_mTSP(TA):
     """
 
     def init(self, env, timeout=5):
+        super().init(env)
         self.timeout = timeout
-        self.env = env
         self.tours = self.calculate_mtsp(True)
         self.objective_value = [0] * len(self.env.robots)
 
@@ -232,18 +232,18 @@ class TA_mTSP(TA):
         return adj_new
 
 
-class TA_frontier_greedy:
+class TA_frontier_greedy(TA):
     """
     round robin greedy assignment
     """
 
     def __init__(self, env):
         # (UnknownEnvironment, float) -> None
-        self.env = env
+        super().init(env)
         self.robot_info_dict = env.robot_info_dict
 
     def assign(self, name):
-        # (None) -> str, List[float], List[float]
+        # (str) -> Task
         robot_info = self.robot_info_dict[name]
         # cost_fn
         dist_cost = robot_info.costs / np.max(robot_info.costs)
@@ -278,3 +278,64 @@ class TA_frontier_greedy:
         )
 
         return min_node
+
+
+class TA_HIGH(TA):
+    """
+    HIGH Task Allocator: Hierarchical Information Gain Heuristic
+    """
+
+    def __init__(self, env):
+        # (UnknownEnvironment, float) -> None
+        super().init(env)
+        self.robot_info_dict = env.robot_info_dict
+
+    def prepare_costs(self, task, avail_robots, cost_calculator):
+        dist_cost = np.zeros((len(avail_robots,)))
+        for i, r in enumerate(avail_robots):
+            dist_cost[i] = cost_calculator.a_star_cost(task.pos, r.pos)
+        return dist_cost
+
+    def assign(self, names, cost_calculator):
+        # (List[str], CostCalculator) -> Task
+        assigned_names = []
+        assigned_tasks = []
+        num_avail_robots = len(names)
+        avail_robots = set(names)
+        avail_tasks = self.env.available_tasks
+        n_assign = min(num_avail_robots, len(avail_tasks))
+
+        # Assign a robot to each task in priority order
+        for it in range(n_assign):
+            # Calculate explore-exploit weights
+            exploration_weight = self.env.exploration_weight
+            exploit_weight = 1 - exploration_weight
+            e2_weights = np.zeros((len(avail_tasks)))
+            for i, task in enumerate(avail_tasks):
+                if task.task_type == "frontier":
+                    e2_weights[i] = exploration_weight
+                else:
+                    e2_weights[i] = exploit_weight
+            # calculate task priorities based on (info_gain+utility)*e2_weight
+            priority_fn = [(avail_tasks[i].info_gain + avail_tasks[i].utility) * e2_weights[i] for i in range(len(avail_tasks))]
+            idx = np.argsort(priority_fn)[::-1]
+            # get highest priority task
+            task = None
+            for i in idx:
+                if not avail_tasks[i].visited:
+                    task = avail_tasks[idx[-1]]
+            if task is None:
+                return assigned_names, assigned_tasks
+            # costs to each robot
+            avail_robot_list = [self.robot_info_dict[name] for name in avail_robots]
+            cost_fn = self.prepare_costs(task, avail_robot_list, cost_calculator)
+            min_robot_idx = np.argmin(cost_fn)
+            min_robot = avail_robot_list[min_robot_idx]
+            # mark visited
+            task.visited = True
+            self.env.update_utility(task, cost_calculator.utility_discount_fn())
+            avail_robots.remove(min_robot)
+            assigned_names.append(min_robot)
+            assigned_tasks.append(task)
+
+        return assigned_names, assigned_tasks

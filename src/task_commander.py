@@ -84,10 +84,11 @@ class TaskCommander(ABC):
         data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
         free_space = 0
         for cell in map_msg.data:
-            if 0 <= cell < 100:
+            if cell >= 0:
                 free_space += 1
-        rospy.logdebug("Map Area: {}".format(free_space * scale * scale))
-        return map_msg, data, scale, origin
+        area = free_space * scale * scale
+        rospy.logdebug("Map Area: {}".format(area))
+        return map_msg, data, scale, origin, area
 
     def publish_image(self, image_pub):
         canvas = plt.gca().figure.canvas

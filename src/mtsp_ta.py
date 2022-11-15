@@ -79,7 +79,7 @@ class MtspCommander(TaskCommander):
         self.get_active_agents()
 
         # Get map
-        map_msg, data, scale, origin = self.get_map_info()
+        map_msg, data, scale, origin, _ = self.get_map_info()
 
         # Get waypoints
         rospy.loginfo("calling task generation service")
