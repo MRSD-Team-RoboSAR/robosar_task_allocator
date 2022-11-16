@@ -20,8 +20,8 @@ from task_transmitter.task_listener_robosar_control import TaskListenerRobosarCo
 
 
 class RobotInfo:
-    def __init__(self, pos=[], n_tasks=[], costs=[]) -> None:
-        self.name = ""
+    def __init__(self, name="", pos=[], n_tasks=[], costs=[]) -> None:
+        self.name = name
         self.pos = pos
         self.curr = None
         self.prev = None
@@ -148,7 +148,7 @@ class FrontierAssignmentCommander(TaskCommander):
             # # Euclidean
             # cost = np.linalg.norm(rp - task_pos)
             # A* path
-            cost = self.cost_calculator.a_star_cost(rp, task_pos)
+            cost, _ = self.cost_calculator.a_star_cost(rp, task_pos)
             pc = self.cost_calculator.obstacle_cost(task_pos, 1.0)
             # pb = 0.0
             # if self.robot_info_dict[robot_id].prev is not None:
@@ -194,7 +194,7 @@ class FrontierAssignmentCommander(TaskCommander):
         self.env.update_tasks(self.frontiers, self.coverage_tasks)
 
         self.cost_calculator.update_map_data(self.gmap, self.map_msg)
-        
+
         return True
 
     def reassign(self, name, solver):

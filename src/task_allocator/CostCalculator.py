@@ -28,17 +28,19 @@ class CostCalculator:
         dist = np.linalg.norm([goal_pos[0] - node_pos[0], goal_pos[1] - node_pos[1]])
         # within utility range and not separated by obstacle
         if dist < self.utility_range and check_edge_collision(goal_pos, node_pos, self.map_msg) != 0:
-            p = 1.0
+            p = 1.0 - dist/self.utility_range
         return p
 
-    def a_star_cost(self, start, goal):
+    def a_star_cost(self, start, goal, max_it=5000):
         start = utils.m_to_pixels(start, self.scale, self.origin)
         goal = utils.m_to_pixels(goal, self.scale, self.origin)
         start_flip = [start[1] / self.downsample, start[0] / self.downsample]
         goal_flip = [goal[1] / self.downsample, goal[0] / self.downsample]
-        _, _, cost = a_star(start_flip, goal_flip, self.gmap, movement="8N")
+        path, _, cost = a_star(start_flip, goal_flip, self.gmap, movement="8N", max_it=max_it)
         self.gmap.visited = np.zeros(self.gmap.dim_cells, dtype=np.float32)
-        return cost * self.scale * self.downsample
+        if len(path) == 0:
+            return cost * self.scale * self.downsample, False
+        return cost * self.scale * self.downsample, True
 
     def obstacle_cost(self, node, r):
         pix_node = utils.m_to_pixels(node, self.scale, self.origin)

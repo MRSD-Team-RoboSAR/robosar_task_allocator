@@ -160,7 +160,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
 
         rospy.loginfo("Starting frontier task allocator")
 
-        self.task_graph_client()
+        # self.task_graph_client()
         self.prepare_env()
         avail_robots = [name for name in self.agent_active_status]
         names, starts, goals, goal_types = self.reassign(avail_robots, solver)
@@ -199,7 +199,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                         and not agent_reached[name]
                     ):
                         self.env.update_utility(
-                            self.robot_info_dict[name].curr, self.utility_discount_fn
+                            self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn
                         )
                         continue
                     avail_robots.append(name)

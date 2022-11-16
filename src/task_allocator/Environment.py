@@ -208,7 +208,7 @@ class UnknownEnvironment:
     ):
         self.frontier_tasks = []
         for id, ft in enumerate(frontier_tasks):
-            if frontier_info_gain:
+            if frontier_info_gain is not None:
                 self.frontier_tasks.append(
                     Task(
                         task_type="frontier",
