@@ -5,12 +5,12 @@ Environment class
 
 import numpy as np
 import heapq
+
 # from Robot import Robot
 from task_allocator.Robot import Robot
 
 
 class Environment:
-
     def __init__(self, nodes=[], adj=[], robots={}):
         """
         nodes: nx2 np.array of task coordinates
@@ -27,8 +27,12 @@ class Environment:
                 elif self.adj[i][j] < 0:
                     d = self.dijkstra(i, j)
                     if d < 0:
-                        print("WARNING: could not find path from {} to {}".format(nodes[i], nodes[j]))
-                        d = 3*np.linalg.norm(nodes[i]-nodes[j])
+                        print(
+                            "WARNING: could not find path from {} to {}".format(
+                                nodes[i], nodes[j]
+                            )
+                        )
+                        d = 3 * np.linalg.norm(nodes[i] - nodes[j])
                     self.adj[i][j] = d
                     self.adj[j][i] = self.adj[i][j]
 
@@ -57,7 +61,7 @@ class Environment:
         robot = Robot(name, self.nodes[start], start)
         self.robots[name] = robot
         self.num_robots = len(self.robots)
-        self.id_dict[name] = self.num_robots-1
+        self.id_dict[name] = self.num_robots - 1
         self.visited.add(robot.prev)
 
     def remove_robot(self, agent):
@@ -89,12 +93,13 @@ class Environment:
         goal: int
         """
         m = self.adj.shape[0]
-        dist = [float('inf') for _ in range(m)]
+        dist = [float("inf") for _ in range(m)]
         dist[start] = 0
         minHeap = [(0, start)]  # distance, node
         while minHeap:
             d, s = heapq.heappop(minHeap)
-            if d > dist[s]: continue
+            if d > dist[s]:
+                continue
             if s == goal:
                 return d  # Reach to goal
             neighbors = []
@@ -109,5 +114,107 @@ class Environment:
         return -1
 
 
+class UnknownEnvironment:
+    def __init__(self, frontier_tasks=[], robot_info={}) -> None:
+        """
+        Takes in frontier nodes and list of robots
+        """
+        # dict[int, RobotInfo]
+        self.robot_info_dict = robot_info
+        # frontiers are rewritten every time update() is called
+        self.frontier_tasks = frontier_tasks  # List[Task]
+        # coverage tasks persist and are updated every time update() is called
+        self.coverage_tasks_dict = {}  # Dict[int, Task]
+        # total unvisited tasks
+        self.available_tasks = []  # List[Task]
+        # reset every time update() is called
+        self.utility = np.ones((len(self.available_tasks),))
+
+    def euclidean(self, x1, x2):
+        return np.linalg.norm([x1[0] - x2[0], x1[1] - x2[1]])
+
+    def get_visited_coverage_tasks(self):
+        visited = []
+        for id, ct in self.coverage_tasks_dict.items():
+            if ct.visited:
+                visited.append(id)
+        return visited
+
+    def get_visited_coverage_tasks_pos(self):
+        visited = []
+        for ct in self.coverage_tasks_dict.values():
+            if ct.visited:
+                visited.append(ct.pos)
+        return np.array(visited)
+
+    def get_unvisited_coverage_tasks(self):
+        unvisited = []
+        for id, ct in self.coverage_tasks_dict.items():
+            if not ct.visited:
+                unvisited.append(id)
+        return unvisited
+
+    def get_unvisited_coverage_tasks_pos(self):
+        unvisited = []
+        for ct in self.coverage_tasks_dict.values():
+            if not ct.visited:
+                unvisited.append(ct.pos)
+        return np.array(unvisited)
+
+    def update_utility(self, goal, utility_discount_fn):
+        # (int, lambda_fn) -> None
+        goal_pos = goal.pos
+        for i in range(len(self.available_tasks)):
+            node_pos = self.available_tasks[i].pos
+            p = utility_discount_fn(goal_pos, node_pos)
+            self.available_tasks[i].utility -= p
+
+    def reset_utility(self):
+        for task in self.coverage_tasks_dict.values():
+            task.utility = 1.0
+
+    def get_utility_arr_from_ntasks(self, n_tasks):
+        n_utility = np.zeros((len(n_tasks),))
+        for idx, task in enumerate(n_tasks):
+            n_utility[idx] = task.utility
+        return n_utility
+
+    def get_available_task_pos(self):
+        task_pos = np.zeros((len(self.available_tasks), 2))
+        for idx, task in enumerate(self.available_tasks):
+            task_pos[idx, :] = task.pos
+        return task_pos
+
+    def get_n_closest_tasks(self, n, robot_pos):
+        C = np.linalg.norm(self.get_available_task_pos() - robot_pos, axis=1)
+        min_node_list = np.argsort(C)
+        n_tasks_idx = min_node_list[:n]
+        return [self.available_tasks[t] for t in n_tasks_idx]
+
+    def update_tasks(self, frontier_tasks, coverage_tasks_dict={}):
+        self.frontier_tasks = []
+        for id, ft in enumerate(frontier_tasks):
+            self.frontier_tasks.append(Task(task_type="frontier", pos=ft, id=id))
+        for id, ct in coverage_tasks_dict.items():
+            if id in self.coverage_tasks_dict:
+                self.coverage_tasks_dict[id].pos = ct
+            else:
+                self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct, id=id)
+        self.available_tasks = []
+        for task in self.frontier_tasks:
+            self.available_tasks.append(task)
+        for task_id in self.get_unvisited_coverage_tasks():
+            self.available_tasks.append(self.coverage_tasks_dict[task_id])
+        self.reset_utility()
+
+    def update_robot_info(self, robot_info_dict={}):
+        self.robot_info_dict = robot_info_dict
 
 
+class Task:
+    def __init__(self, task_type="frontier", pos=[0.0, 0.0], id=0) -> None:
+        self.task_type = task_type
+        self.pos = pos
+        self.id = id
+        self.utility = 1.0
+        self.visited = False

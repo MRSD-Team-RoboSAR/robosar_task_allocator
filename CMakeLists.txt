@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   geometry_msgs
   visualization_msgs
+  robosar_messages
 )
 
 ## System dependencies are found with CMake's conventions
@@ -108,7 +109,7 @@ catkin_python_setup()
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
- INCLUDE_DIRS src/frontier_exploration/include
+#  INCLUDE_DIRS src/frontier_exploration/include
 #  LIBRARIES stuff
  CATKIN_DEPENDS roscpp rospy std_msgs tf2 tf2_ros nav_msgs geometry_msgs visualization_msgs
 #  DEPENDS system_lib
@@ -120,17 +121,17 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
-  src/frontier_exploration/include
-  ${catkin_INCLUDE_DIRS}
-)
+# include_directories(
+#   src/frontier_exploration/include
+#   ${catkin_INCLUDE_DIRS}
+# )
 
 ## Declare a C++ library
-add_library(${PROJECT_NAME} src/frontier_exploration/src/functions.cpp 
-                            src/frontier_exploration/src/mtrand.cpp
-                            src/frontier_exploration/src/frontier_rrt_search.cpp
-)
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+# add_library(${PROJECT_NAME} src/frontier_exploration/src/functions.cpp 
+#                             src/frontier_exploration/src/mtrand.cpp
+#                             src/frontier_exploration/src/frontier_rrt_search.cpp
+# )
+# target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -140,7 +141,8 @@ target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(frontier_rrt_search_node src/frontier_exploration/src/frontier_rrt_search_node.cpp)
+# add_executable(frontier_rrt_search_node src/frontier_exploration/src/frontier_rrt_search_node.cpp)
+# add_executable(test_rrt src/frontier_exploration/src/test.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -150,10 +152,12 @@ add_executable(frontier_rrt_search_node src/frontier_exploration/src/frontier_rr
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(frontier_rrt_search_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(frontier_rrt_search_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(test_rrt ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(frontier_rrt_search_node ${catkin_LIBRARIES} ${PROJECT_NAME})
+# target_link_libraries(frontier_rrt_search_node ${catkin_LIBRARIES} ${PROJECT_NAME})
+# target_link_libraries(test_rrt ${catkin_LIBRARIES} ${PROJECT_NAME})
 
 #############
 ## Install ##
@@ -171,9 +175,9 @@ target_link_libraries(frontier_rrt_search_node ${catkin_LIBRARIES} ${PROJECT_NAM
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-install(TARGETS frontier_rrt_search_node
-   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
- )
+# install(TARGETS frontier_rrt_search_node
+#    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#  )
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
