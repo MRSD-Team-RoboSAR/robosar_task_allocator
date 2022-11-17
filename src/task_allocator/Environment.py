@@ -204,7 +204,6 @@ class UnknownEnvironment:
         frontier_tasks,
         coverage_tasks_dict={},
         frontier_info_gain=None,
-        coverage_info_gain=None,
     ):
         self.frontier_tasks = []
         for id, ft in enumerate(frontier_tasks):
@@ -220,11 +219,13 @@ class UnknownEnvironment:
             else:
                 self.frontier_tasks.append(Task(task_type="frontier", pos=ft, id=id))
         for id, ct in coverage_tasks_dict.items():
-            # TODO: add info gain
             if id in self.coverage_tasks_dict:
-                self.coverage_tasks_dict[id].pos = ct
+                self.coverage_tasks_dict[id].pos = ct[:2]
             else:
-                self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct, id=id)
+                if len(ct) > 2:
+                    self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct[:2], id=id, info_gain=ct[2])
+                else:
+                    self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct, id=id)
         self.available_tasks = []
         for task in self.frontier_tasks:
             self.available_tasks.append(task)

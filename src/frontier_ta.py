@@ -58,6 +58,7 @@ class FrontierAssignmentCommander(TaskCommander):
         task_ids = []
         points = []
         task_types = []
+        info_gains = []
         # print("calling task graph getter service")
         rospy.wait_for_service("/robosar_task_generator/task_graph_getter")
         try:
@@ -68,6 +69,7 @@ class FrontierAssignmentCommander(TaskCommander):
             task_ids = resp1.task_ids
             points = resp1.points
             task_types = resp1.task_types
+            info_gains = resp1.info_gains
         except rospy.ServiceException as e:
             print("task graph getter service call failed: %s" % e)
 

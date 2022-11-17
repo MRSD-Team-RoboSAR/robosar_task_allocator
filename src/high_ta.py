@@ -33,6 +33,30 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.frontiers = np.array(points)
         self.fronters_info_gain = np.array(msg.infoGain)
 
+    def task_graph_client(self):
+        task_ids = []
+        points = []
+        task_types = []
+        info_gains = []
+        # print("calling task graph getter service")
+        rospy.wait_for_service("/robosar_task_generator/task_graph_getter")
+        try:
+            task_graph_getter_service = rospy.ServiceProxy(
+                "/robosar_task_generator/task_graph_getter", task_graph_getter
+            )
+            resp1 = task_graph_getter_service()
+            task_ids = resp1.task_ids
+            points = resp1.points
+            task_types = resp1.task_types
+            info_gains = resp1.info_gains
+        except rospy.ServiceException as e:
+            print("task graph getter service call failed: %s" % e)
+
+        for i in range(len(task_ids)):
+            if task_types[i] == resp1.COVERAGE:
+                self.coverage_tasks[task_ids[i]] = [points[i].x, points[i].y, info_gains[i]]       
+        return
+
     def calculate_e2_weights(self):
         percent_explored = self.covered_area / float(self.tot_area)
         explore_weight = -percent_explored + 1
