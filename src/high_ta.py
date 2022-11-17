@@ -32,6 +32,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             points.append([point.x, point.y])
         self.frontiers = np.array(points)
         self.fronters_info_gain = np.array(msg.infoGain)
+        self.fronters_info_gain = self.fronters_info_gain / np.max(self.fronters_info_gain)
 
     def task_graph_client(self):
         task_ids = []
@@ -51,30 +52,40 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             info_gains = resp1.info_gains
         except rospy.ServiceException as e:
             print("task graph getter service call failed: %s" % e)
+            return False
 
+        if len(task_ids) == 0:
+            return False
         for i in range(len(task_ids)):
             if task_types[i] == resp1.COVERAGE:
                 self.coverage_tasks[task_ids[i]] = [points[i].x, points[i].y, info_gains[i]]       
-        return
+        return True
 
     def calculate_e2_weights(self):
-        percent_explored = self.covered_area / float(self.tot_area)
-        explore_weight = -percent_explored + 1
+        percent_explored = min(self.covered_area / float(self.tot_area), 1.0)
+        explore_weight = 1.0 - percent_explored**2
         return explore_weight
 
     def prepare_env(self):
         # get frontiers
+        got_frontiers = True
         try:
             msg = rospy.wait_for_message(
                 "/frontier_filter/filtered_frontiers", PointArray, timeout=5
             )
+            self.frontier_callback(msg)
         except:
-            print("no frontier messages received.")
-            return False
-        self.frontier_callback(msg)
+            rospy.logwarn_once("no frontier messages received.")
+            got_frontiers =  False
 
         if len(self.frontiers) == 0:
-            print("no frontiers received.")
+            got_frontiers =  False
+
+        # get new coverage tasks
+        got_coverage = self.task_graph_client()
+
+        if not got_frontiers and not got_coverage:
+            rospy.logwarn("no tasks received.")
             return False
 
         # get map
@@ -208,8 +219,6 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                     agent_reached_flag = True
 
             if self.timer_flag or agent_reached_flag:
-                # get new coverage tasks
-                self.task_graph_client()
                 unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
                 visited_coverage = self.env.get_visited_coverage_tasks_pos()
 
