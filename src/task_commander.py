@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rospkg
 import rospy
+import task_allocator.utils as utils
 from cv_bridge import CvBridge
 from nav_msgs.msg import OccupancyGrid
-from robosar_messages.msg import *
-from robosar_messages.srv import *
 from std_msgs.msg import Int32
 
-import task_allocator.utils as utils
+from robosar_messages.msg import *
+from robosar_messages.srv import *
 
 
 class TaskCommander(ABC):
@@ -21,6 +21,7 @@ class TaskCommander(ABC):
         self.maps_path = self.rospack.get_path("robosar_task_generator")
         self.package_path = self.rospack.get_path("robosar_task_allocator")
         self.agent_active_status = {}
+        self.geofence = []
         self.callback_triggered = False
         # task publisher
         self.task_pub = rospy.Publisher(
@@ -83,10 +84,10 @@ class TaskCommander(ABC):
         rospy.logdebug("map origin: {}".format(origin))
         data = np.reshape(map_msg.data, (map_msg.info.height, map_msg.info.width))
         free_space = 0
-        for cell in map_msg.data:
-            if cell >= 0:
+        for idx, cell_val in enumerate(map_msg.data):
+            if 0 <= cell_val:
                 free_space += 1
-        area = free_space * scale * scale
+        area = free_space * (scale**2)
         rospy.logdebug("Map Area: {}".format(area))
         return map_msg, data, scale, origin, area
 

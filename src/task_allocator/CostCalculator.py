@@ -28,7 +28,7 @@ class CostCalculator:
         dist = np.linalg.norm([goal_pos[0] - node_pos[0], goal_pos[1] - node_pos[1]])
         # within utility range and not separated by obstacle
         if dist < self.utility_range and check_edge_collision(goal_pos, node_pos, self.map_msg) != 0:
-            p = 1.0 - dist/self.utility_range
+            p = 1.0 - (dist/self.utility_range)**2
         return p
 
     def a_star_cost(self, start, goal, max_it=5000):

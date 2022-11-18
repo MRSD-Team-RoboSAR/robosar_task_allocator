@@ -35,9 +35,9 @@ class RobotInfo:
 class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
-        reassign_period = rospy.get_param("~reassign_period", 30.0)
-        self.utility_range = rospy.get_param("~utility_range", 1.5)
-        timer = rospy.Timer(rospy.Duration(reassign_period), self.timer_flag_callback)
+        self.reassign_period = rospy.get_param("~reassign_period", 30.0)
+        self.utility_range = rospy.get_param("~utility_range", 2.5)
+        timer = rospy.Timer(rospy.Duration(self.reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
         self.tflistener = tf.TransformListener()
@@ -171,7 +171,7 @@ class FrontierAssignmentCommander(TaskCommander):
         # get frontiers
         try:
             msg = rospy.wait_for_message(
-                "/frontier_filter/filtered_frontiers", PointArray, timeout=5
+                "/frontier_filter/filtered_frontiers", PointArray, timeout=15
             )
         except:
             print("no frontier messages received.")

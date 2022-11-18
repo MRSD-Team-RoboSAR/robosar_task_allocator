@@ -221,6 +221,8 @@ class UnknownEnvironment:
         for id, ct in coverage_tasks_dict.items():
             if id in self.coverage_tasks_dict:
                 self.coverage_tasks_dict[id].pos = ct[:2]
+                if len(ct) > 2:
+                    self.coverage_tasks_dict[id].info_gain = ct[2]
             else:
                 if len(ct) > 2:
                     self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct[:2], id=id, info_gain=ct[2])

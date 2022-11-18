@@ -20,7 +20,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
     def __init__(self):
         super().__init__()
         self.fronters_info_gain = []
-        self.geofence = rospy.get_param("geofence", [-0.5, 12.0, -10.0, 2.0])
+        self.geofence = rospy.get_param("/robosar_task_graph_node/geofence", [-0.5, 12.0, -10.0, 2.0])
         self.tot_area = (self.geofence[1] - self.geofence[0]) * (
             self.geofence[3] - self.geofence[2]
         )
@@ -60,7 +60,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             return False
         for i in range(len(task_ids)):
             if task_types[i] == resp1.COVERAGE:
-                self.coverage_tasks[task_ids[i]] = [points[i].x, points[i].y, info_gains[i]]       
+                self.coverage_tasks[task_ids[i]] = [points[i].x, points[i].y, info_gains[i]]
         return True
 
     def calculate_e2_weights(self):
@@ -73,12 +73,13 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         got_frontiers = True
         try:
             msg = rospy.wait_for_message(
-                "/frontier_filter/filtered_frontiers", PointArray, timeout=5
+                "/frontier_filter/filtered_frontiers", PointArray, timeout=self.reassign_period
             )
             self.frontier_callback(msg)
         except:
-            rospy.logwarn_once("no frontier messages received.")
+            rospy.logwarn("no frontier messages received.")
             self.frontiers = np.array([])
+            self.fronters_info_gain = []
             got_frontiers =  False
 
         if len(self.frontiers) == 0:
@@ -206,6 +207,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             task_listener.setBusyStatus(name)
         if len(names) > 0:
             self.publish_visualize(names, starts, goals, goal_types)
+            pe = Float32()
+            pe.data = min(self.covered_area / self.tot_area, 1.0)
+            self.area_explored_pub.publish(pe)
         self.timer_flag = False
 
         while not rospy.is_shutdown():
@@ -255,7 +259,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                         visited_coverage,
                     )
                     pe = Float32()
-                    pe.data = self.covered_area / self.tot_area
+                    pe.data = min(self.covered_area / self.tot_area, 1.0)
                     self.area_explored_pub.publish(pe)
 
             self.rate.sleep()

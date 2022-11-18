@@ -337,23 +337,23 @@ class TA_HIGH(TA):
             n_tasks, dist_fn = self.get_closest_tasks(self.env.available_tasks, rp, cost_calculator)
             if len(n_tasks) == 0:
                 print("using euclidean")
-                n_tasks = self.env.get_n_closest_tasks(n=7, robot_pos=rp)
+                n_tasks = self.env.get_n_closest_tasks(n=5, robot_pos=rp)
                 dist_fn = self.prepare_task_costs(n_tasks, rp, cost_calculator)
             task_pos = [t.pos for t in n_tasks]
             print("task_pos: {}".format(task_pos))
             # costs to each task
-            nearness_fn = 1.0 - (dist_fn / np.max(dist_fn))
-            print("nearness_fn: {}".format(nearness_fn))
+            dist_cost_fn =  dist_fn / np.max(dist_fn)
+            print("dist cost: {}".format(dist_cost_fn))
 
             # calculate task priorities based on info_gain
-            usefulness_multiplier = np.array([n_tasks[i].info_gain for i in range(len(n_tasks))])
-            print("info_gain_discount: {}".format(usefulness_multiplier))
+            info_gain = np.array([n_tasks[i].info_gain**1.5 for i in range(len(n_tasks))])
+            print("info_gain: {}".format(info_gain))
 
-            utility_cost = np.array([1.0-n_tasks[i].utility for i in range(len(n_tasks))])
-            print("utility_cost: {}".format(utility_cost))
+            utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
+            print("utility: {}".format(utility_fn))
             e2_weights = self.prepare_e2_weights(n_tasks)
             print("e2 weights: {}".format(e2_weights))
-            reward_fn = (np.clip(nearness_fn - utility_cost, a_min=0.0, a_max=1.0)) * usefulness_multiplier * e2_weights
+            reward_fn = (2*utility_fn - dist_cost_fn) * info_gain * e2_weights
             print("cost_fn: {}".format(reward_fn))
 
             best_node_list = np.argsort(reward_fn)[::-1]
