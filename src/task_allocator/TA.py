@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 import rospy
 
 import matplotlib.pyplot as plt
+
 # import mTSP_utils
 import numpy as np
 import task_allocator.mTSP_utils as mTSP_utils
@@ -60,6 +61,7 @@ class TA_greedy(TA):
     """
     TA_greedy: greedy task allocator
     """
+
     def init(self, env):
         super().init(env)
         self.objective_value = [0] * len(self.env.robots)
@@ -292,13 +294,25 @@ class TA_HIGH(TA):
         self.robot_info_dict = env.robot_info_dict
 
     def prepare_costs(self, task, avail_robots, cost_calculator):
-        dist_cost = np.zeros((len(avail_robots,)))
+        dist_cost = np.zeros(
+            (
+                len(
+                    avail_robots,
+                )
+            )
+        )
         for i, r in enumerate(avail_robots):
             dist_cost[i], _ = cost_calculator.a_star_cost(task.pos, r.pos)
         return dist_cost
 
     def prepare_task_costs(self, tasks, robot_pos, cost_calculator):
-        dist_cost = np.zeros((len(tasks,)))
+        dist_cost = np.zeros(
+            (
+                len(
+                    tasks,
+                )
+            )
+        )
         for i, task in enumerate(tasks):
             dist_cost[i], _ = cost_calculator.a_star_cost(task.pos, robot_pos)
         return dist_cost
@@ -334,27 +348,36 @@ class TA_HIGH(TA):
         for robot_id in names:
             # closest tasks
             rp = self.robot_info_dict[robot_id].pos
-            n_tasks, dist_fn = self.get_closest_tasks(self.env.available_tasks, rp, cost_calculator)
+            euc_tasks_to_consider = self.env.get_n_closest_tasks(n=10, robot_pos=rp)
+            n_tasks, dist_fn = self.get_closest_tasks(
+                euc_tasks_to_consider, rp, cost_calculator
+            )
             if len(n_tasks) == 0:
-                print("using euclidean")
-                n_tasks = self.env.get_n_closest_tasks(n=5, robot_pos=rp)
+                rospy.logdebug("using euclidean")
+                n_tasks = euc_tasks_to_consider[:5]
                 dist_fn = self.prepare_task_costs(n_tasks, rp, cost_calculator)
-            task_pos = [t.pos for t in n_tasks]
-            print("task_pos: {}".format(task_pos))
             # costs to each task
-            dist_cost_fn =  dist_fn / np.max(dist_fn)
-            print("dist cost: {}".format(dist_cost_fn))
-
+            dist_cost_fn = dist_fn / np.max(dist_fn)
             # calculate task priorities based on info_gain
-            info_gain = np.array([n_tasks[i].info_gain**1.5 for i in range(len(n_tasks))])
-            print("info_gain: {}".format(info_gain))
-
+            info_gain = np.array(
+                [n_tasks[i].info_gain ** 1.5 for i in range(len(n_tasks))]
+            )
             utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
-            print("utility: {}".format(utility_fn))
             e2_weights = self.prepare_e2_weights(n_tasks)
-            print("e2 weights: {}".format(e2_weights))
-            reward_fn = (2*utility_fn - dist_cost_fn) * info_gain * e2_weights
-            print("cost_fn: {}".format(reward_fn))
+            reward_fn = (2 * utility_fn - dist_cost_fn) * info_gain * e2_weights
+
+            # print
+            for i, t in enumerate(n_tasks):
+                print(
+                    "task_pos: {}, e2 weight: {}, dist cost: {}, info_gain: {}, utility: {}, reward_fn: {}".format(
+                        t.pos,
+                        e2_weights[i],
+                        dist_cost_fn[i],
+                        info_gain[i],
+                        utility_fn[i],
+                        reward_fn[i],
+                    )
+                )
 
             best_node_list = np.argsort(reward_fn)[::-1]
             best_node = None
@@ -368,7 +391,7 @@ class TA_HIGH(TA):
                 continue
 
             print(
-                "Assigned {}: {} task {} at {}".format(
+                "Assigned {}: {} task {} at {}\n".format(
                     robot_id, best_node.task_type, best_node.id, best_node.pos
                 )
             )
