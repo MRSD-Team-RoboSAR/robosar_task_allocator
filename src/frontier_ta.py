@@ -175,6 +175,7 @@ class FrontierAssignmentCommander(TaskCommander):
             )
         except:
             print("no frontier messages received.")
+            self.frontiers = np.array([])
             return False
         self.frontier_callback(msg)
 

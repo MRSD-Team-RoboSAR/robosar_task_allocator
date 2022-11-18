@@ -6,6 +6,7 @@ import skimage.measure
 import task_allocator.utils as utils
 from frontier_ta import FrontierAssignmentCommander, RobotInfo
 from generate_graph.gridmap import OccupancyGridMap
+from std_msgs.msg import Float32
 from task_allocator.CostCalculator import CostCalculator
 from task_allocator.Environment import UnknownEnvironment
 from task_allocator.TA import *
@@ -24,6 +25,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             self.geofence[3] - self.geofence[2]
         )
         self.covered_area = 0.0
+        self.area_explored_pub = rospy.Publisher("/percent_completed", Float32, queue_size=1)
         self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
 
     def frontier_callback(self, msg):
@@ -76,6 +78,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             self.frontier_callback(msg)
         except:
             rospy.logwarn_once("no frontier messages received.")
+            self.frontiers = np.array([])
             got_frontiers =  False
 
         if len(self.frontiers) == 0:
@@ -251,6 +254,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                         unvisited_coverage,
                         visited_coverage,
                     )
+                    pe = Float32()
+                    pe.data = self.covered_area / self.tot_area
+                    self.area_explored_pub.publish(pe)
 
             self.rate.sleep()
 
