@@ -34,7 +34,8 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             points.append([point.x, point.y])
         self.frontiers = np.array(points)
         self.fronters_info_gain = np.array(msg.infoGain)
-        self.fronters_info_gain = self.fronters_info_gain / np.max(self.fronters_info_gain)
+        if len(self.fronters_info_gain) > 0:
+            self.fronters_info_gain = self.fronters_info_gain / np.max(self.fronters_info_gain)
 
     def task_graph_client(self):
         task_ids = []
@@ -224,6 +225,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                 if status == 2:
                     agent_reached[name] = True
                     agent_reached_flag = True
+                    solver.reached(self.robot_info_dict[name])
 
             if self.timer_flag or agent_reached_flag:
                 unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()

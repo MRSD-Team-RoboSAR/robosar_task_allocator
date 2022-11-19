@@ -339,6 +339,9 @@ class TA_HIGH(TA):
                 n_tasks.append(task)
         return n_tasks, np.array(dist_cost)
 
+    def reached(self, robot_info):
+        robot_info.curr.visited = True
+
     def assign(self, names, cost_calculator):
         # (List[str], CostCalculator) -> Task
         assigned_names = []
@@ -356,6 +359,9 @@ class TA_HIGH(TA):
                 rospy.logdebug("using euclidean")
                 n_tasks = euc_tasks_to_consider[:5]
                 dist_fn = self.prepare_task_costs(n_tasks, rp, cost_calculator)
+            if len(n_tasks) == 0:
+                print("{} unused".format(robot_id))
+                continue
             # costs to each task
             dist_cost_fn = dist_fn / np.max(dist_fn)
             # calculate task priorities based on info_gain
@@ -382,9 +388,10 @@ class TA_HIGH(TA):
             best_node_list = np.argsort(reward_fn)[::-1]
             best_node = None
             for i in best_node_list:
-                if not n_tasks[i].visited:
+                if not n_tasks[i].visited and n_tasks[i] not in assigned_tasks:
                     best_node = n_tasks[i]
-                    best_node.visited = True
+                    if (n_tasks[i].task_type == "frontier"):
+                        best_node.visited = True
                     break
             if best_node is None:
                 print("{} unused".format(robot_id))
