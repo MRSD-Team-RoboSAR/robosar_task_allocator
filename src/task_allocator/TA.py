@@ -348,7 +348,6 @@ class TA_HIGH(TA):
         assigned_names = []
         assigned_tasks = []
         avail_robots = set(names)
-        assigned_coverage_ids = set()
         rospy.logwarn("calculating")
 
         for robot_id in names:
@@ -391,12 +390,13 @@ class TA_HIGH(TA):
             best_node_list = np.argsort(reward_fn)[::-1]
             best_node = None
             for i in best_node_list:
-                if not n_tasks[i].visited and n_tasks[i].id not in assigned_coverage_ids:
+                if not n_tasks[i].visited and not n_tasks[i].assigned:
                     best_node = n_tasks[i]
                     if (n_tasks[i].task_type == "frontier"):
                         best_node.visited = True
-                    else:
-                        assigned_coverage_ids.add(n_tasks[i].id)
+                    if self.robot_info_dict[robot_id].curr is not None:
+                        self.robot_info_dict[robot_id].curr.assigned = False
+                    best_node.assigned = True
                     break
             if best_node is None:
                 print("{} unused".format(robot_id))

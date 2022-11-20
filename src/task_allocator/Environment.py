@@ -249,3 +249,4 @@ class Task:
         self.utility = 1.0
         self.info_gain = info_gain
         self.visited = False
+        self.assigned = False
