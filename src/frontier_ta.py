@@ -36,8 +36,10 @@ class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
         self.reassign_period = rospy.get_param("~reassign_period", 30.0)
-        self.utility_range = rospy.get_param("~utility_range", 2.5)
-        timer = rospy.Timer(rospy.Duration(self.reassign_period), self.timer_flag_callback)
+        self.utility_range = rospy.get_param("~utility_range", 1.5)
+        timer = rospy.Timer(
+            rospy.Duration(self.reassign_period), self.timer_flag_callback
+        )
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
         self.tflistener = tf.TransformListener()
@@ -169,22 +171,38 @@ class FrontierAssignmentCommander(TaskCommander):
 
     def prepare_env(self):
         # get frontiers
+        got_frontiers = True
         try:
             msg = rospy.wait_for_message(
-                "/frontier_filter/filtered_frontiers", PointArray, timeout=15
+                "/frontier_filter/filtered_frontiers",
+                PointArray,
+                timeout=self.reassign_period,
             )
+            self.frontier_callback(msg)
         except:
-            print("no frontier messages received.")
+            rospy.logwarn("no frontier messages received.")
             self.frontiers = np.array([])
-            return False
-        self.frontier_callback(msg)
+            self.fronters_info_gain = []
+            got_frontiers = False
 
         if len(self.frontiers) == 0:
-            print("no frontiers received.")
+            got_frontiers = False
+
+        # get new coverage tasks
+        got_coverage = self.task_graph_client()
+
+        if not got_frontiers and not got_coverage:
+            rospy.logwarn("no tasks received.")
             return False
 
         # get map
-        self.map_msg, self.map_data, self.scale, self.origin, _ = self.get_map_info()
+        (
+            self.map_msg,
+            self.map_data,
+            self.scale,
+            self.origin,
+            self.covered_area,
+        ) = self.get_map_info()
         robot_pos = self.get_agent_position()
         for r, rp in robot_pos.items():
             self.robot_info_dict[r].pos = rp
@@ -196,6 +214,7 @@ class FrontierAssignmentCommander(TaskCommander):
         # update env
         self.env.update_tasks(self.frontiers, self.coverage_tasks)
 
+        # update cost calculator
         self.cost_calculator.update_map_data(self.gmap, self.map_msg)
 
         return True
@@ -331,7 +350,6 @@ class FrontierAssignmentCommander(TaskCommander):
         # 3. mtsp
         rospy.loginfo("Starting frontier task allocator")
 
-        self.task_graph_client()
         self.prepare_env()
         names = []
         starts = []
@@ -363,8 +381,6 @@ class FrontierAssignmentCommander(TaskCommander):
                     agent_reached_flag = True
 
             if self.timer_flag or agent_reached_flag:
-                # get new coverage tasks
-                self.task_graph_client()
 
                 unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
                 visited_coverage = self.env.get_visited_coverage_tasks_pos()
@@ -380,7 +396,10 @@ class FrontierAssignmentCommander(TaskCommander):
                         and self.robot_info_dict[name].curr.task_type == "coverage"
                         and not agent_reached[name]
                     ):
-                        self.env.update_utility(self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn)
+                        self.env.update_utility(
+                            self.robot_info_dict[name].curr,
+                            self.cost_calculator.utility_discount_fn,
+                        )
                         continue
                     start, goal, goal_type = self.reassign(name, solver)
                     if len(start) > 0:
