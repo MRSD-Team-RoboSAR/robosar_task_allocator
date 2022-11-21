@@ -11,7 +11,6 @@ import rospy
 import matplotlib.pyplot as plt
 
 # import mTSP_utils
-import math
 import numpy as np
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
@@ -330,35 +329,18 @@ class TA_HIGH(TA):
                 e2_weights[i] = exploit_weight
         return e2_weights
 
-    def task_sample(self, n_sample, robot_pos, explore_weight, avail_tasks):
-        euc_tasks_to_consider = self.env.get_n_closest_tasks(n=len(avail_tasks), robot_pos=robot_pos)
-        tt = [t.task_type for t in euc_tasks_to_consider]
-        sampled_tasks = []
-        n_frontiers = int(n_sample*explore_weight)
-        n_coverage = n_sample - n_frontiers
-        for i in range(len(euc_tasks_to_consider)):
-            if n_frontiers == 0:
-                break
-            if tt[i] == "frontier":
-                sampled_tasks.append(euc_tasks_to_consider[i])
-                n_frontiers -= 1
-            else:
-                sampled_tasks.append(euc_tasks_to_consider[i])
-                n_coverage -= 1
-        return sampled_tasks
-
     def get_closest_tasks(self, tasks, robot_pos, cost_calculator):
         dist_cost = []
         n_tasks = []
         for task in tasks:
-            cost, found_flag = cost_calculator.a_star_cost(task.pos, robot_pos, 1000)
+            cost, found_flag = cost_calculator.a_star_cost(task.pos, robot_pos, 500)
             if found_flag:
                 dist_cost.append(cost)
                 n_tasks.append(task)
         return n_tasks, np.array(dist_cost)
 
     def reached(self, robot_info):
-        if robot_info.curr is not None and math.dist(robot_info.pos, robot_info.curr.pos) <= 0.5:
+        if robot_info.curr is not None:
             robot_info.curr.visited = True
 
     def assign(self, names, cost_calculator):
@@ -371,13 +353,13 @@ class TA_HIGH(TA):
         for robot_id in names:
             # closest tasks
             rp = self.robot_info_dict[robot_id].pos
-            sampled_tasks = self.task_sample(10, rp, self.env.exploration_weight, self.env.available_tasks)
+            euc_tasks_to_consider = self.env.get_n_closest_tasks(n=10, robot_pos=rp)
             n_tasks, dist_fn = self.get_closest_tasks(
-                sampled_tasks, rp, cost_calculator
+                euc_tasks_to_consider, rp, cost_calculator
             )
             if len(n_tasks) == 0:
                 rospy.logwarn("using euclidean")
-                n_tasks = sampled_tasks[:5]
+                n_tasks = euc_tasks_to_consider[:5]
                 dist_fn = self.prepare_task_costs(n_tasks, rp, cost_calculator)
             if len(n_tasks) == 0:
                 print("{} unused".format(robot_id))
