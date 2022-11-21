@@ -224,7 +224,8 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             agent_reached_flag = False
             for name in self.agent_active_status:
                 status = task_listener.getStatus(name)
-                if status == 2 and solver.reached(self.robot_info_dict[name]):
+                curr_goal_id = task_listener.getGoalID(name)
+                if status == 2 and solver.reached(self.robot_info_dict[name], curr_goal_id):
                     agent_reached[name] = True
                     agent_reached_flag = True
 

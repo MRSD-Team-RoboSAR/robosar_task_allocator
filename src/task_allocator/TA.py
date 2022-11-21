@@ -340,9 +340,10 @@ class TA_HIGH(TA):
                 n_tasks.append(task)
         return n_tasks, np.array(dist_cost)
 
-    def reached(self, robot_info):
-        if robot_info.curr is not None:
-            robot_info.curr.visited = True
+    def reached(self, robot_info, goal_id):
+        rospy.logwarn("{} reached task {}, current task is {}".format(robot_info.name, goal_id, robot_info.curr.id))
+        if goal_id is not None and goal_id in self.env.coverage_tasks_dict:
+            self.env.coverage_tasks_dict[goal_id].visited = True
             return True
         return False
 

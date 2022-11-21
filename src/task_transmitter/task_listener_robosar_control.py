@@ -49,6 +49,14 @@ class TaskListenerRobosarControl:
                 "[Task_Alloc_Tx] GetStat Missing client for {}".format(robot_id)
             )
 
+    def getGoalID(self, robot_id):
+        if robot_id in self.status_map:
+            return self.status_map[robot_id].getGoalID()
+        else:
+            rospy.logwarn(
+                "[Task_Alloc_Tx] GetStat Missing client for {}".format(robot_id)
+            )
+
     def wait_for_execution(self, robot_id):
         if robot_id in self.client_map:
             return self.client_map[robot_id].wait_for_result()
@@ -69,6 +77,7 @@ class TaskListenerRobosarControl:
             self.IDLE = 2
             self.GOAL_SENT = 3
             self.status = self.IDLE
+            self.goal_id = None
 
         def setBusyStatus(self):
             self.status = self.GOAL_SENT
@@ -76,9 +85,13 @@ class TaskListenerRobosarControl:
         def getStatus(self):
             return self.status
 
+        def getGoalID(self):
+            return self.goal_id
+
         def callback(self, data):
             # print(data.data)
             status = data.data
+            self.goal_id = data.goal_id
             if status == data.BUSY:
                 self.status = self.BUSY
             elif self.status != self.GOAL_SENT and status == data.SUCCEEDED:
