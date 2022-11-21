@@ -11,18 +11,17 @@ from robosar_messages.srv import *
 from sensor_msgs.msg import Image
 
 import task_allocator.utils as utils
-from generate_graph.a_star import a_star
 from generate_graph.gridmap import OccupancyGridMap
+from task_allocator.CostCalculator import CostCalculator
 from task_allocator.Environment import UnknownEnvironment
 from task_allocator.TA import *
 from task_commander import TaskCommander
-from robosar_task_generator.functions import check_edge_collision
 from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 
 
 class RobotInfo:
-    def __init__(self, pos=[], n_tasks=[], costs=[]) -> None:
-        self.name = ""
+    def __init__(self, name="", pos=[], n_tasks=[], costs=[]) -> None:
+        self.name = name
         self.pos = pos
         self.curr = None
         self.prev = None
@@ -36,9 +35,9 @@ class RobotInfo:
 class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
-        reassign_period = rospy.get_param("~reassign_period", 30.0)
-        self.utility_range = rospy.get_param("~utility_range", 1.5)
-        timer = rospy.Timer(rospy.Duration(reassign_period), self.timer_flag_callback)
+        self.reassign_period = rospy.get_param("~reassign_period", 30.0)
+        self.utility_range = rospy.get_param("~utility_range", 1.0)
+        timer = rospy.Timer(rospy.Duration(self.reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
         self.tflistener = tf.TransformListener()
@@ -52,12 +51,14 @@ class FrontierAssignmentCommander(TaskCommander):
         self.env = None  # type: UnknownEnvironment
         self.gmap = None  # type: OccupancyGridMap
         self.downsample = 2
+        self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
         self.n = 5
 
     def task_graph_client(self):
         task_ids = []
         points = []
         task_types = []
+        info_gains = []
         # print("calling task graph getter service")
         rospy.wait_for_service("/robosar_task_generator/task_graph_getter")
         try:
@@ -68,6 +69,7 @@ class FrontierAssignmentCommander(TaskCommander):
             task_ids = resp1.task_ids
             points = resp1.points
             task_types = resp1.task_types
+            info_gains = resp1.info_gains
         except rospy.ServiceException as e:
             print("task graph getter service call failed: %s" % e)
 
@@ -131,53 +133,6 @@ class FrontierAssignmentCommander(TaskCommander):
         except rospy.ServiceException as e:
             print("RRT path service call failed: %s" % e)
 
-    def utility_discount_fn(self, goal_pos, node_pos):
-        p = 0.0
-        dist = np.linalg.norm([goal_pos[0] - node_pos[0], goal_pos[1] - node_pos[1]])
-        # within utility range and not separated by obstacle
-        if dist < self.utility_range and check_edge_collision(goal_pos, node_pos, self.map_msg) != 0:
-            p = 1.0
-        return p
-
-    def obstacle_cost(self, node, r):
-        pix_node = utils.m_to_pixels(node, self.scale, self.origin)
-        pix_range = int(r / self.scale)
-        x_min = int(max(pix_node[0] - pix_range, 0))
-        x_max = int(min(pix_node[0] + pix_range, self.map_data.shape[1]))
-        y_min = int(max(pix_node[1] - pix_range, 0))
-        y_max = int(min(pix_node[1] + pix_range, self.map_data.shape[0]))
-        min_pix_to_occ = 2.0 * pix_range
-        for i in range(x_min, x_max):
-            for j in range(y_min, y_max):
-                if self.map_data[j][i] == 100:
-                    min_pix_to_occ = min(
-                        min_pix_to_occ,
-                        np.linalg.norm([i - pix_node[0], j - pix_node[1]]),
-                    )
-        pc = 0.0
-        min_range_to_occ = min_pix_to_occ * self.scale
-        if min_range_to_occ < r:
-            pc = 1.0 - (min_range_to_occ / r)
-        return pc
-
-    def a_star_cost(self, start, goal):
-        start = utils.m_to_pixels(start, self.scale, self.origin)
-        goal = utils.m_to_pixels(goal, self.scale, self.origin)
-        start_flip = [start[1] / self.downsample, start[0] / self.downsample]
-        goal_flip = [goal[1] / self.downsample, goal[0] / self.downsample]
-        _, _, cost = a_star(start_flip, goal_flip, self.gmap, movement="8N")
-        self.gmap.visited = np.zeros(self.gmap.dim_cells, dtype=np.float32)
-        return cost * self.scale * self.downsample
-
-    def proximity_bonus(self, node, prev, r):
-        if prev is None:
-            return 0.0
-        dist = np.linalg.norm([node[0] - prev[0], node[1] - prev[1]])
-        p = 0.0
-        if dist < r:
-            p = 1.0 - (dist / r)
-        return p
-
     def prepare_costs(self, robot_id):
         rp = self.robot_info_dict[robot_id].pos
         # print(rp)
@@ -195,11 +150,11 @@ class FrontierAssignmentCommander(TaskCommander):
             # # Euclidean
             # cost = np.linalg.norm(rp - task_pos)
             # A* path
-            cost = self.a_star_cost(rp, task_pos)
-            pc = self.obstacle_cost(task_pos, 1.0)
+            cost, _ = self.cost_calculator.a_star_cost(rp, task_pos)
+            pc = self.cost_calculator.obstacle_cost(task_pos, 1.0)
             # pb = 0.0
             # if self.robot_info_dict[robot_id].prev is not None:
-            #     pb = self.proximity_bonus(
+            #     pb = self.cost_calculator.proximity_bonus(
             #         task_pos, self.robot_info_dict[rrobot_id.prev.pos, 2.0
             # )
             costs.append(cost)
@@ -214,21 +169,38 @@ class FrontierAssignmentCommander(TaskCommander):
 
     def prepare_env(self):
         # get frontiers
+        got_frontiers = True
         try:
             msg = rospy.wait_for_message(
-                "/frontier_filter/filtered_frontiers", PointArray, timeout=5
+                "/frontier_filter/filtered_frontiers",
+                PointArray,
+                timeout=self.reassign_period,
             )
+            self.frontier_callback(msg)
         except:
-            print("no frontier messages received.")
-            return False
-        self.frontier_callback(msg)
+            rospy.logwarn("no frontier messages received.")
+            self.frontiers = np.array([])
+            self.fronters_info_gain = []
+            got_frontiers = False
 
         if len(self.frontiers) == 0:
-            print("no frontiers received.")
+            got_frontiers = False
+
+        # get new coverage tasks
+        got_coverage = self.task_graph_client()
+
+        if not got_frontiers and not got_coverage:
+            rospy.logwarn("no tasks received.")
             return False
 
         # get map
-        _, self.map_data, self.scale, self.origin = self.get_map_info()
+        (
+            self.map_msg,
+            self.map_data,
+            self.scale,
+            self.origin,
+            self.covered_area,
+        ) = self.get_map_info()
         robot_pos = self.get_agent_position()
         for r, rp in robot_pos.items():
             self.robot_info_dict[r].pos = rp
@@ -239,6 +211,9 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # update env
         self.env.update_tasks(self.frontiers, self.coverage_tasks)
+
+        self.cost_calculator.update_map_data(self.gmap, self.map_msg)
+
         return True
 
     def reassign(self, name, solver):
@@ -253,13 +228,13 @@ class FrontierAssignmentCommander(TaskCommander):
         if goal is not None:
             self.robot_info_dict[name].curr = goal
             # update utility
-            self.env.update_utility(goal, self.utility_discount_fn)
+            self.env.update_utility(goal, self.cost_calculator.utility_discount_fn)
             task_type = 1
             if goal.task_type == "coverage":
                 task_type = 2
-            return self.robot_info_dict[name].pos, goal.pos, task_type
+            return self.robot_info_dict[name].pos, goal.pos, task_type, goal.id
 
-        return [], [], None
+        return [], [], None, None
 
     def publish_visualize(
         self,
@@ -267,6 +242,7 @@ class FrontierAssignmentCommander(TaskCommander):
         starts,
         goals,
         goal_type,
+        goal_ids,
         unvisited_coverage=[],
         visited_coverage=[],
     ):
@@ -279,6 +255,7 @@ class FrontierAssignmentCommander(TaskCommander):
         task_msg.goalx = [g[0] for g in goals]
         task_msg.goaly = [g[1] for g in goals]
         task_msg.goal_type = [t for t in goal_type]
+        task_msg.goal_id = goal_ids
         while self.task_pub.get_num_connections() == 0:
             rospy.loginfo("Waiting for subscriber to task topic:")
             rospy.sleep(1)
@@ -321,7 +298,7 @@ class FrontierAssignmentCommander(TaskCommander):
         self.get_active_agents()
 
         # Get map
-        self.map_msg, self.map_data, self.scale, self.origin = self.get_map_info()
+        self.map_msg, self.map_data, self.scale, self.origin, _ = self.get_map_info()
 
         # Get frontiers
         rospy.loginfo("Waiting for frontiers")
@@ -378,16 +355,18 @@ class FrontierAssignmentCommander(TaskCommander):
         starts = []
         goals = []
         goal_types = []
+        goal_ids = []
         for name in self.agent_active_status:
-            start, goal, goal_type = self.reassign(name, solver)
+            start, goal, goal_type, goal_id = self.reassign(name, solver)
             if len(start) > 0:
                 names.append(name)
                 starts.append(start)
                 goals.append(goal)
                 goal_types.append(goal_type)
+                goal_ids.append(goal_id)
                 task_listener.setBusyStatus(name)
         if len(names) > 0:
-            self.publish_visualize(names, starts, goals, goal_types)
+            self.publish_visualize(names, starts, goals, goal_types, goal_ids)
         self.timer_flag = False
 
         while not rospy.is_shutdown():
@@ -409,28 +388,28 @@ class FrontierAssignmentCommander(TaskCommander):
 
                 unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
                 visited_coverage = self.env.get_visited_coverage_tasks_pos()
-                # print("visited: ", visited_coverage)
-                # print("unvisited: ", unvisited_coverage)
 
                 # reassign
                 names = []
                 starts = []
                 goals = []
                 goal_types = []
+                goal_ids = []
                 for name in self.agent_active_status:
                     if (
                         self.robot_info_dict[name].curr
                         and self.robot_info_dict[name].curr.task_type == "coverage"
                         and not agent_reached[name]
                     ):
-                        self.env.update_utility(self.robot_info_dict[name].curr, self.utility_discount_fn)
+                        self.env.update_utility(self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn)
                         continue
-                    start, goal, goal_type = self.reassign(name, solver)
+                    start, goal, goal_type, goal_id = self.reassign(name, solver)
                     if len(start) > 0:
                         names.append(name)
                         starts.append(start)
                         goals.append(goal)
                         goal_types.append(goal_type)
+                        goal_ids.append(goal_id)
                         task_listener.setBusyStatus(name)
                     # print("{}: status {}".format(name, task_listener.getStatus(name)))
                 self.send_visited_to_task_graph()
@@ -442,6 +421,7 @@ class FrontierAssignmentCommander(TaskCommander):
                         starts,
                         goals,
                         goal_types,
+                        goal_ids,
                         unvisited_coverage,
                         visited_coverage,
                     )

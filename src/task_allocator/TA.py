@@ -6,15 +6,16 @@ Task Allocation classes
 """
 
 from abc import ABC, abstractmethod
+import rospy
 
 import matplotlib.pyplot as plt
 
 # import mTSP_utils
+import math
 import numpy as np
-from scipy.optimize import linear_sum_assignment
-
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
+from scipy.optimize import linear_sum_assignment
 
 
 class TA(ABC):
@@ -28,7 +29,6 @@ class TA(ABC):
         env: Environment object
         """
         self.env = env
-        self.objective_value = [0] * len(self.env.robots)
 
     def reached(self, name, curr_node):
         """
@@ -62,6 +62,10 @@ class TA_greedy(TA):
     """
     TA_greedy: greedy task allocator
     """
+
+    def init(self, env):
+        super().init(env)
+        self.objective_value = [0] * len(self.env.robots)
 
     def assign(self, name, curr_node):
         # Find next unvisited min cost task
@@ -112,8 +116,8 @@ class TA_mTSP(TA):
     """
 
     def init(self, env, timeout=5):
+        super().init(env)
         self.timeout = timeout
-        self.env = env
         self.tours = self.calculate_mtsp(True)
         self.objective_value = [0] * len(self.env.robots)
 
@@ -232,18 +236,18 @@ class TA_mTSP(TA):
         return adj_new
 
 
-class TA_frontier_greedy:
+class TA_frontier_greedy(TA):
     """
     round robin greedy assignment
     """
 
     def __init__(self, env):
         # (UnknownEnvironment, float) -> None
-        self.env = env
+        super().init(env)
         self.robot_info_dict = env.robot_info_dict
 
     def assign(self, name):
-        # (None) -> str, List[float], List[float]
+        # (str) -> Task
         robot_info = self.robot_info_dict[name]
         # cost_fn
         dist_cost = robot_info.costs / np.max(robot_info.costs)
@@ -278,3 +282,184 @@ class TA_frontier_greedy:
         )
 
         return min_node
+
+
+class TA_HIGH(TA):
+    """
+    HIGH Task Allocator: Hierarchical Information Gain Heuristic
+    """
+
+    def __init__(self, env):
+        # (UnknownEnvironment, float) -> None
+        super().init(env)
+        self.robot_info_dict = env.robot_info_dict
+
+    def prepare_costs(self, task, avail_robots, cost_calculator):
+        dist_cost = np.zeros(
+            (
+                len(
+                    avail_robots,
+                )
+            )
+        )
+        for i, r in enumerate(avail_robots):
+            dist_cost[i], _ = cost_calculator.a_star_cost(task.pos, r.pos)
+        return dist_cost
+
+    def prepare_task_costs(self, tasks, robot_pos, cost_calculator):
+        dist_cost = np.zeros(
+            (
+                len(
+                    tasks,
+                )
+            )
+        )
+        for i, task in enumerate(tasks):
+            dist_cost[i], _ = cost_calculator.a_star_cost(task.pos, robot_pos)
+        return dist_cost
+
+    def prepare_e2_weights(self, tasks):
+        # Calculate explore-exploit weights
+        exploration_weight = self.env.exploration_weight
+        exploit_weight = 1 - exploration_weight
+        e2_weights = np.zeros((len(tasks)))
+        for i, task in enumerate(tasks):
+            if task.task_type == "frontier":
+                e2_weights[i] = exploration_weight
+            else:
+                e2_weights[i] = exploit_weight
+        return e2_weights
+
+    def get_closest_tasks(self, tasks, robot_pos, cost_calculator):
+        dist_cost = []
+        n_tasks = []
+        for task in tasks:
+            cost, found_flag = cost_calculator.a_star_cost(task.pos, robot_pos, 500)
+            if found_flag:
+                dist_cost.append(cost)
+                n_tasks.append(task)
+        return n_tasks, np.array(dist_cost)
+
+    def reached(self, robot_info, goal_id):
+        rospy.logwarn("{} reached task {}, current task is {}".format(robot_info.name, goal_id, robot_info.curr.id))
+        if goal_id is not None and goal_id in self.env.coverage_tasks_dict:
+            self.env.coverage_tasks_dict[goal_id].visited = True
+        return True
+
+    def assign(self, names, cost_calculator):
+        # (List[str], CostCalculator) -> Task
+        assigned_names = []
+        assigned_tasks = []
+        avail_robots = set(names)
+        rospy.logwarn("calculating")
+
+        for robot_id in names:
+            # closest tasks
+            rp = self.robot_info_dict[robot_id].pos
+            euc_tasks_to_consider = self.env.get_n_closest_tasks(n=10, robot_pos=rp)
+            n_tasks, dist_fn = self.get_closest_tasks(
+                euc_tasks_to_consider, rp, cost_calculator
+            )
+            if len(n_tasks) == 0:
+                rospy.logwarn("using euclidean")
+                n_tasks = euc_tasks_to_consider[:5]
+                dist_fn = self.prepare_task_costs(n_tasks, rp, cost_calculator)
+            if len(n_tasks) == 0:
+                print("{} unused".format(robot_id))
+                continue
+            # costs to each task
+            dist_cost_fn = dist_fn / np.max(dist_fn)
+            # calculate task priorities based on info_gain
+            info_gain = np.array(
+                [n_tasks[i].info_gain for i in range(len(n_tasks))]
+            )
+            utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
+            e2_weights = self.prepare_e2_weights(n_tasks)
+            reward_fn = (2*utility_fn + dist_cost_fn) * info_gain * e2_weights
+
+            # print
+            for i, t in enumerate(n_tasks):
+                print(
+                    "task_pos: {}, e2 weight: {}, dist cost: {}, info_gain: {}, utility: {}, reward_fn: {}".format(
+                        t.pos,
+                        e2_weights[i],
+                        dist_cost_fn[i],
+                        info_gain[i],
+                        utility_fn[i],
+                        reward_fn[i],
+                    )
+                )
+
+            best_node_list = np.argsort(reward_fn)[::-1]
+            best_node = None
+            for i in best_node_list:
+                if not n_tasks[i].visited and not n_tasks[i].assigned:
+                    best_node = n_tasks[i]
+                    if (n_tasks[i].task_type == "frontier"):
+                        best_node.visited = True
+                    if self.robot_info_dict[robot_id].curr is not None:
+                        self.robot_info_dict[robot_id].curr.assigned = False
+                    best_node.assigned = True
+                    break
+            if best_node is None:
+                print("{} unused".format(robot_id))
+                continue
+
+            print(
+                "Assigned {}: {} task {} at {}\n".format(
+                    robot_id, best_node.task_type, best_node.id, best_node.pos
+                )
+            )
+            self.env.update_utility(best_node, cost_calculator.utility_discount_fn)
+            avail_robots.remove(robot_id)
+            assigned_names.append(robot_id)
+            assigned_tasks.append(best_node)
+
+        return assigned_names, assigned_tasks
+
+    # def assign(self, names, cost_calculator):
+    #     # (List[str], CostCalculator) -> Task
+    #     assigned_names = []
+    #     assigned_tasks = []
+    #     num_avail_robots = len(names)
+    #     avail_robots = set(names)
+    #     avail_tasks = self.env.available_tasks
+    #     n_assign = min(num_avail_robots, len(avail_tasks))
+
+    #     # Calculate explore-exploit weights
+    #     e2_weights = self.prepare_e2_weights(avail_tasks)
+    #     rospy.logwarn("e2 weights: {}".format(e2_weights))
+
+    #     # Assign a robot to each task in priority order
+    #     for it in range(n_assign):
+    #         # calculate task priorities based on (info_gain+utility)*e2_weight
+    #         info_gains = [avail_tasks[i].info_gain for i in range(len(avail_tasks))]
+    #         rospy.logwarn("info_gains: {}".format(info_gains))
+    #         priority_fn = [(avail_tasks[i].info_gain + avail_tasks[i].utility) * e2_weights[i] for i in range(len(avail_tasks))]
+    #         rospy.logwarn("priority fn: {}".format(priority_fn))
+    #         idx = np.argsort(priority_fn)[::-1]
+    #         # get highest priority task
+    #         task = None
+    #         for i in idx:
+    #             if not avail_tasks[i].visited:
+    #                 task = avail_tasks[i]
+    #                 break
+    #         if task is None:
+    #             return assigned_names, assigned_tasks
+    #         # costs to each robot
+    #         avail_robot_list = [self.robot_info_dict[name] for name in avail_robots]
+    #         cost_fn = self.prepare_costs(task, avail_robot_list, cost_calculator)
+    #         min_robot_idx = np.argmin(cost_fn)
+    #         min_robot = avail_robot_list[min_robot_idx]
+    #         # mark visited
+    #         task.visited = True
+    #         self.env.update_utility(task, cost_calculator.utility_discount_fn)
+    #         avail_robots.remove(min_robot.name)
+    #         assigned_names.append(min_robot.name)
+    #         assigned_tasks.append(task)
+
+    #         print("Assigned {}: {} task {} at {}".format(
+    #             min_robot.name, task.task_type, task.id, task.pos
+    #         ))
+
+    #     return assigned_names, assigned_tasks

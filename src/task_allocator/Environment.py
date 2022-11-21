@@ -129,9 +129,17 @@ class UnknownEnvironment:
         self.available_tasks = []  # List[Task]
         # reset every time update() is called
         self.utility = np.ones((len(self.available_tasks),))
+        self.exploration_weight = 1.0
+        self.map_msg = None
 
     def euclidean(self, x1, x2):
         return np.linalg.norm([x1[0] - x2[0], x1[1] - x2[1]])
+
+    def get_highest_priority_tasks(self):
+        sorted_tasks = sorted(
+            self.available_tasks, key=lambda t: t.info_gain, reverse=True
+        )
+        return sorted_tasks
 
     def get_visited_coverage_tasks(self):
         visited = []
@@ -162,12 +170,12 @@ class UnknownEnvironment:
         return np.array(unvisited)
 
     def update_utility(self, goal, utility_discount_fn):
-        # (int, lambda_fn) -> None
+        # (Task, lambda_fn) -> None
         goal_pos = goal.pos
         for i in range(len(self.available_tasks)):
             node_pos = self.available_tasks[i].pos
             p = utility_discount_fn(goal_pos, node_pos)
-            self.available_tasks[i].utility -= p
+            self.available_tasks[i].utility = max(0.0, self.available_tasks[i].utility-p)
 
     def reset_utility(self):
         for task in self.coverage_tasks_dict.values():
@@ -191,15 +199,35 @@ class UnknownEnvironment:
         n_tasks_idx = min_node_list[:n]
         return [self.available_tasks[t] for t in n_tasks_idx]
 
-    def update_tasks(self, frontier_tasks, coverage_tasks_dict={}):
+    def update_tasks(
+        self,
+        frontier_tasks,
+        coverage_tasks_dict={},
+        frontier_info_gain=None,
+    ):
         self.frontier_tasks = []
         for id, ft in enumerate(frontier_tasks):
-            self.frontier_tasks.append(Task(task_type="frontier", pos=ft, id=id))
+            if frontier_info_gain is not None:
+                self.frontier_tasks.append(
+                    Task(
+                        task_type="frontier",
+                        pos=ft,
+                        info_gain=frontier_info_gain[id],
+                        id=id,
+                    )
+                )
+            else:
+                self.frontier_tasks.append(Task(task_type="frontier", pos=ft, id=id))
         for id, ct in coverage_tasks_dict.items():
             if id in self.coverage_tasks_dict:
-                self.coverage_tasks_dict[id].pos = ct
+                self.coverage_tasks_dict[id].pos = ct[:2]
+                if len(ct) > 2:
+                    self.coverage_tasks_dict[id].info_gain = ct[2]
             else:
-                self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct, id=id)
+                if len(ct) > 2:
+                    self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct[:2], id=id, info_gain=ct[2])
+                else:
+                    self.coverage_tasks_dict[id] = Task(task_type="coverage", pos=ct, id=id)
         self.available_tasks = []
         for task in self.frontier_tasks:
             self.available_tasks.append(task)
@@ -212,9 +240,13 @@ class UnknownEnvironment:
 
 
 class Task:
-    def __init__(self, task_type="frontier", pos=[0.0, 0.0], id=0) -> None:
+    def __init__(
+        self, task_type="frontier", pos=[0.0, 0.0], info_gain=0.0, id=0
+    ) -> None:
         self.task_type = task_type
         self.pos = pos
         self.id = id
         self.utility = 1.0
+        self.info_gain = info_gain
         self.visited = False
+        self.assigned = False

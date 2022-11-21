@@ -69,7 +69,7 @@ def get_closest_free_cell(start, gmap):
     return tuple(start)
 
 
-def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
+def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3, max_it=10000):
     """
     A* for 2D occupancy grid.
     :param start_m: start node (x, y) in meters
@@ -116,8 +116,8 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
     # while there are elements to investigate in our front.
     iter = 0
     while front:
-        if iter >= 10000:
-            print("WARN: astar timeout")
+        if iter >= max_it:
+            # print("WARN: astar timeout")
             return [], [], 5 * math.dist(start, goal)
         # get smallest item and remove from front.
         element = heappop(front)
@@ -161,7 +161,6 @@ def a_star(start_m, goal_m, gmap, movement="8N", occupancy_cost_factor=3):
 
                 heappush(front, (new_total_cost_to_goal, new_cost, new_pos, pos))
         iter += 1
-
 
     if pos != goal:
         return [], [], 5 * math.dist(start, goal)

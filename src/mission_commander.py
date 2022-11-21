@@ -66,6 +66,13 @@ class MissionCommander:
                 name="task_commander",
                 output="screen",
             )
+        elif self.args.task_allocator == "high":
+            self._tc_node = roslaunch.core.Node(
+                "robosar_task_allocator",
+                "high_ta.py",
+                name="task_commander",
+                output="screen",
+            )
         elif self.args.task_allocator == "mtsp":
             self._tc_node = roslaunch.core.Node(
                 "robosar_task_allocator",
