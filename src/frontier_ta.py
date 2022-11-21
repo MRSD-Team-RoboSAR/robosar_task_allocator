@@ -169,22 +169,38 @@ class FrontierAssignmentCommander(TaskCommander):
 
     def prepare_env(self):
         # get frontiers
+        got_frontiers = True
         try:
             msg = rospy.wait_for_message(
-                "/frontier_filter/filtered_frontiers", PointArray, timeout=15
+                "/frontier_filter/filtered_frontiers",
+                PointArray,
+                timeout=self.reassign_period,
             )
+            self.frontier_callback(msg)
         except:
-            print("no frontier messages received.")
+            rospy.logwarn("no frontier messages received.")
             self.frontiers = np.array([])
-            return False
-        self.frontier_callback(msg)
+            self.fronters_info_gain = []
+            got_frontiers = False
 
         if len(self.frontiers) == 0:
-            print("no frontiers received.")
+            got_frontiers = False
+
+        # get new coverage tasks
+        got_coverage = self.task_graph_client()
+
+        if not got_frontiers and not got_coverage:
+            rospy.logwarn("no tasks received.")
             return False
 
         # get map
-        self.map_msg, self.map_data, self.scale, self.origin, _ = self.get_map_info()
+        (
+            self.map_msg,
+            self.map_data,
+            self.scale,
+            self.origin,
+            self.covered_area,
+        ) = self.get_map_info()
         robot_pos = self.get_agent_position()
         for r, rp in robot_pos.items():
             self.robot_info_dict[r].pos = rp
