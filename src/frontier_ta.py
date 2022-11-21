@@ -36,7 +36,7 @@ class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
         self.reassign_period = rospy.get_param("~reassign_period", 30.0)
-        self.utility_range = rospy.get_param("~utility_range", 2.5)
+        self.utility_range = rospy.get_param("~utility_range", 1.0)
         timer = rospy.Timer(rospy.Duration(self.reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)

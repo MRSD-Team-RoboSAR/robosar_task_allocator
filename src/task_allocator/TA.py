@@ -11,6 +11,7 @@ import rospy
 import matplotlib.pyplot as plt
 
 # import mTSP_utils
+import math
 import numpy as np
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
@@ -340,8 +341,10 @@ class TA_HIGH(TA):
         return n_tasks, np.array(dist_cost)
 
     def reached(self, robot_info):
-        if robot_info.curr is not None:
+        if robot_info.curr is not None and math.dist(robot_info.pos, robot_info.curr.pos) <= 0.25:
             robot_info.curr.visited = True
+            return True
+        return False
 
     def assign(self, names, cost_calculator):
         # (List[str], CostCalculator) -> Task
@@ -368,7 +371,7 @@ class TA_HIGH(TA):
             dist_cost_fn = dist_fn / np.max(dist_fn)
             # calculate task priorities based on info_gain
             info_gain = np.array(
-                [n_tasks[i].info_gain ** 1.5 for i in range(len(n_tasks))]
+                [n_tasks[i].info_gain for i in range(len(n_tasks))]
             )
             utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
             e2_weights = self.prepare_e2_weights(n_tasks)

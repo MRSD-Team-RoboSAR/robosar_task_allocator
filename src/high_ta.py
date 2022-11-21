@@ -222,10 +222,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             agent_reached_flag = False
             for name in self.agent_active_status:
                 status = task_listener.getStatus(name)
-                if status == 2:
+                if status == 2 and solver.reached(self.robot_info_dict[name]):
                     agent_reached[name] = True
                     agent_reached_flag = True
-                    solver.reached(self.robot_info_dict[name])
 
             if self.timer_flag or agent_reached_flag:
                 unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
