@@ -375,7 +375,7 @@ class TA_HIGH(TA):
             )
             utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
             e2_weights = self.prepare_e2_weights(n_tasks)
-            reward_fn = (2 * utility_fn - dist_cost_fn) * info_gain * e2_weights
+            reward_fn = (2*utility_fn + dist_cost_fn) * info_gain * e2_weights
 
             # print
             for i, t in enumerate(n_tasks):

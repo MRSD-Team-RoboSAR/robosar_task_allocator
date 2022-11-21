@@ -216,9 +216,9 @@ class FrontierAssignmentCommander(TaskCommander):
             task_type = 1
             if goal.task_type == "coverage":
                 task_type = 2
-            return self.robot_info_dict[name].pos, goal.pos, task_type
+            return self.robot_info_dict[name].pos, goal.pos, task_type, goal.id
 
-        return [], [], None
+        return [], [], None, None
 
     def publish_visualize(
         self,
@@ -226,6 +226,7 @@ class FrontierAssignmentCommander(TaskCommander):
         starts,
         goals,
         goal_type,
+        goal_ids,
         unvisited_coverage=[],
         visited_coverage=[],
     ):
@@ -238,6 +239,7 @@ class FrontierAssignmentCommander(TaskCommander):
         task_msg.goalx = [g[0] for g in goals]
         task_msg.goaly = [g[1] for g in goals]
         task_msg.goal_type = [t for t in goal_type]
+        task_msg.goal_id = goal_ids
         while self.task_pub.get_num_connections() == 0:
             rospy.loginfo("Waiting for subscriber to task topic:")
             rospy.sleep(1)
@@ -337,16 +339,18 @@ class FrontierAssignmentCommander(TaskCommander):
         starts = []
         goals = []
         goal_types = []
+        goal_ids = []
         for name in self.agent_active_status:
-            start, goal, goal_type = self.reassign(name, solver)
+            start, goal, goal_type, goal_id = self.reassign(name, solver)
             if len(start) > 0:
                 names.append(name)
                 starts.append(start)
                 goals.append(goal)
                 goal_types.append(goal_type)
+                goal_ids.append(goal_id)
                 task_listener.setBusyStatus(name)
         if len(names) > 0:
-            self.publish_visualize(names, starts, goals, goal_types)
+            self.publish_visualize(names, starts, goals, goal_types, goal_ids)
         self.timer_flag = False
 
         while not rospy.is_shutdown():
@@ -374,6 +378,7 @@ class FrontierAssignmentCommander(TaskCommander):
                 starts = []
                 goals = []
                 goal_types = []
+                goal_ids = []
                 for name in self.agent_active_status:
                     if (
                         self.robot_info_dict[name].curr
@@ -382,12 +387,13 @@ class FrontierAssignmentCommander(TaskCommander):
                     ):
                         self.env.update_utility(self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn)
                         continue
-                    start, goal, goal_type = self.reassign(name, solver)
+                    start, goal, goal_type, goal_id = self.reassign(name, solver)
                     if len(start) > 0:
                         names.append(name)
                         starts.append(start)
                         goals.append(goal)
                         goal_types.append(goal_type)
+                        goal_ids.append(goal_id)
                         task_listener.setBusyStatus(name)
                     # print("{}: status {}".format(name, task_listener.getStatus(name)))
                 self.send_visited_to_task_graph()
@@ -399,6 +405,7 @@ class FrontierAssignmentCommander(TaskCommander):
                         starts,
                         goals,
                         goal_types,
+                        goal_ids,
                         unvisited_coverage,
                         visited_coverage,
                     )
