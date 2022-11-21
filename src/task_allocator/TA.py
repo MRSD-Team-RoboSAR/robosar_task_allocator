@@ -333,12 +333,11 @@ class TA_HIGH(TA):
     def task_sample(self, n_sample, robot_pos, explore_weight, avail_tasks):
         euc_tasks_to_consider = self.env.get_n_closest_tasks(n=len(avail_tasks), robot_pos=robot_pos)
         tt = [t.task_type for t in euc_tasks_to_consider]
-        sampled_tasks = euc_tasks_to_consider[:int(n_sample/3)]
-        n_left = min(n_sample-len(sampled_tasks), len(euc_tasks_to_consider))
-        n_frontiers = int(n_left*explore_weight)
-        n_coverage = n_left - n_frontiers
-        for i in range(n_left):
-            if n_frontiers <= 0:
+        sampled_tasks = []
+        n_frontiers = int(n_sample*explore_weight)
+        n_coverage = n_sample - n_frontiers
+        for i in range(len(euc_tasks_to_consider)):
+            if n_frontiers == 0:
                 break
             if tt[i] == "frontier":
                 sampled_tasks.append(euc_tasks_to_consider[i])
@@ -346,7 +345,6 @@ class TA_HIGH(TA):
             else:
                 sampled_tasks.append(euc_tasks_to_consider[i])
                 n_coverage -= 1
-        print([t.task_type for t in sampled_tasks])
         return sampled_tasks
 
     def get_closest_tasks(self, tasks, robot_pos, cost_calculator):
@@ -368,9 +366,6 @@ class TA_HIGH(TA):
         assigned_names = []
         assigned_tasks = []
         avail_robots = set(names)
-        for robot_id in names:
-            if self.robot_info_dict[robot_id].curr is not None:
-                self.robot_info_dict[robot_id].curr.assigned = False
         rospy.logwarn("calculating")
 
         for robot_id in names:
@@ -391,7 +386,7 @@ class TA_HIGH(TA):
             dist_cost_fn = dist_fn / np.max(dist_fn)
             # calculate task priorities based on info_gain
             info_gain = np.array(
-                [n_tasks[i].info_gain**1.5 for i in range(len(n_tasks))]
+                [n_tasks[i].info_gain ** 1.5 for i in range(len(n_tasks))]
             )
             utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
             e2_weights = self.prepare_e2_weights(n_tasks)
@@ -417,6 +412,8 @@ class TA_HIGH(TA):
                     best_node = n_tasks[i]
                     if (n_tasks[i].task_type == "frontier"):
                         best_node.visited = True
+                    if self.robot_info_dict[robot_id].curr is not None:
+                        self.robot_info_dict[robot_id].curr.assigned = False
                     best_node.assigned = True
                     break
             if best_node is None:

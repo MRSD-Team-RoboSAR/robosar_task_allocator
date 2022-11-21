@@ -72,15 +72,57 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         explore_weight = 1.0 - percent_explored**2
         return explore_weight
 
-    def prepare_high_env(self):
+    def prepare_env(self):
+        # get frontiers
+        got_frontiers = True
+        try:
+            msg = rospy.wait_for_message(
+                "/frontier_filter/filtered_frontiers", PointArray, timeout=self.reassign_period
+            )
+            self.frontier_callback(msg)
+        except:
+            rospy.logwarn("no frontier messages received.")
+            self.frontiers = np.array([])
+            self.fronters_info_gain = []
+            got_frontiers =  False
+
+        if len(self.frontiers) == 0:
+            got_frontiers =  False
+
+        # get new coverage tasks
+        got_coverage = self.task_graph_client()
+
+        if not got_frontiers and not got_coverage:
+            rospy.logwarn("no tasks received.")
+            return False
+
+        # get map
+        (
+            self.map_msg,
+            self.map_data,
+            self.scale,
+            self.origin,
+            self.covered_area,
+        ) = self.get_map_info()
+        robot_pos = self.get_agent_position()
+        for r, rp in robot_pos.items():
+            self.robot_info_dict[r].pos = rp
+        resized_image = skimage.measure.block_reduce(
+            self.map_data, (self.downsample, self.downsample), np.max
+        )
+        self.gmap = OccupancyGridMap.from_data(resized_image)
+
         # update env
         self.env.exploration_weight = self.calculate_e2_weights()
         assert len(self.frontiers) == len(self.fronters_info_gain)
         self.env.update_tasks(
             self.frontiers, self.coverage_tasks, self.fronters_info_gain
         )
-        return True
 
+        # update cost calculator
+        self.cost_calculator.update_map_data(self.gmap, self.map_msg)
+
+        return True
 
     def reassign(self, avail_robots, solver):
         self.env.update_robot_info(self.robot_info_dict)
@@ -161,8 +203,8 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
 
         rospy.loginfo("Starting frontier task allocator")
 
+        # self.task_graph_client()
         self.prepare_env()
-        self.prepare_high_env()
         avail_robots = [name for name in self.agent_active_status]
         names, starts, goals, goal_types = self.reassign(avail_robots, solver)
         for name in names:
@@ -176,7 +218,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
 
         while not rospy.is_shutdown():
             # get frontiers
-            if not self.prepare_env() or not self.prepare_high_env():
+            if not self.prepare_env():
                 continue
 
             agent_reached = {name: False for name in self.agent_active_status}
