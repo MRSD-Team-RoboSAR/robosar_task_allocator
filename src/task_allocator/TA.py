@@ -11,6 +11,7 @@ import rospy
 import matplotlib.pyplot as plt
 
 # import mTSP_utils
+import math
 import numpy as np
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
@@ -339,9 +340,11 @@ class TA_HIGH(TA):
                 n_tasks.append(task)
         return n_tasks, np.array(dist_cost)
 
-    def reached(self, robot_info):
-        if robot_info.curr is not None:
-            robot_info.curr.visited = True
+    def reached(self, robot_info, goal_id):
+        rospy.logwarn("{} reached task {}, current task is {}".format(robot_info.name, goal_id, robot_info.curr.id))
+        if goal_id is not None and goal_id in self.env.coverage_tasks_dict:
+            self.env.coverage_tasks_dict[goal_id].visited = True
+        return True
 
     def assign(self, names, cost_calculator):
         # (List[str], CostCalculator) -> Task
@@ -368,11 +371,11 @@ class TA_HIGH(TA):
             dist_cost_fn = dist_fn / np.max(dist_fn)
             # calculate task priorities based on info_gain
             info_gain = np.array(
-                [n_tasks[i].info_gain ** 1.5 for i in range(len(n_tasks))]
+                [n_tasks[i].info_gain for i in range(len(n_tasks))]
             )
             utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
             e2_weights = self.prepare_e2_weights(n_tasks)
-            reward_fn = (2 * utility_fn - dist_cost_fn) * info_gain * e2_weights
+            reward_fn = (2*utility_fn + dist_cost_fn) * info_gain * e2_weights
 
             # print
             for i, t in enumerate(n_tasks):
