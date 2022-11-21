@@ -341,7 +341,7 @@ class TA_HIGH(TA):
         return n_tasks, np.array(dist_cost)
 
     def reached(self, robot_info):
-        if robot_info.curr is not None and math.dist(robot_info.pos, robot_info.curr.pos) <= 0.25:
+        if robot_info.curr is not None:
             robot_info.curr.visited = True
             return True
         return False

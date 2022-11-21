@@ -129,6 +129,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         starts = []
         goals = []
         goal_types = []
+        goal_ids = []
         if len(names) > 0:
             for i, name in enumerate(names):
                 goal = goal_tasks[i]
@@ -139,8 +140,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                 starts.append(self.robot_info_dict[name].pos)
                 goals.append(goal.pos)
                 goal_types.append(task_type)
+                goal_ids.append(goal.id)
 
-        return names, starts, goals, goal_types
+        return names, starts, goals, goal_types, goal_ids
 
     def execute(self):
         """
@@ -203,11 +205,11 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         # self.task_graph_client()
         self.prepare_env()
         avail_robots = [name for name in self.agent_active_status]
-        names, starts, goals, goal_types = self.reassign(avail_robots, solver)
+        names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
         for name in names:
             task_listener.setBusyStatus(name)
         if len(names) > 0:
-            self.publish_visualize(names, starts, goals, goal_types)
+            self.publish_visualize(names, starts, goals, goal_types, goal_ids)
             pe = Float32()
             pe.data = min(self.covered_area / self.tot_area, 1.0)
             self.area_explored_pub.publish(pe)
@@ -244,7 +246,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                         )
                         continue
                     avail_robots.append(name)
-                names, starts, goals, goal_types = self.reassign(avail_robots, solver)
+                names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
                 for name in names:
                     task_listener.setBusyStatus(name)
                 self.send_visited_to_task_graph()
@@ -256,6 +258,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                         starts,
                         goals,
                         goal_types,
+                        goal_ids,
                         unvisited_coverage,
                         visited_coverage,
                     )
