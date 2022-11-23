@@ -11,8 +11,6 @@ from task_allocator.CostCalculator import CostCalculator
 from task_allocator.Environment import UnknownEnvironment
 from task_allocator.TA import *
 from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
-from collections import deque
-from nav_msgs.msg import OccupancyGrid
 
 from robosar_messages.msg import *
 from robosar_messages.srv import *
@@ -28,7 +26,6 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         )
         self.covered_area = 0.0
         self.area_explored_pub = rospy.Publisher("/percent_completed", Float32, queue_size=1)
-        self.info_map_pub = rospy.Publisher("/information_map", OccupancyGrid, queue_size=1)
         self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
 
     def frontier_callback(self, msg):
@@ -213,9 +210,6 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                 self.send_visited_to_task_graph()
                 self.timer_flag = False
 
-                if len(self.env.available_tasks) > 0:
-                    self.visualise_utility()
-
                 if len(names) > 0:
                     self.publish_visualize(
                         names,
@@ -231,91 +225,6 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                     self.area_explored_pub.publish(pe)
 
             self.rate.sleep()
-
-    def inflate_cell_with_bfs(self, information_map, pos, info_gain):
-        """
-        Inflate cell with BFS
-        """
-        # local variables
-        cost_scaling_factor = 0.05
-        neighbours = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]]
-        inflation_radius_cells = 100
-
-        # Get pixel position
-        pixel_pos = utils.m_to_pixels(pos, self.scale, self.origin)
-
-        queue = deque()
-        queue.append((pixel_pos[0], pixel_pos[1]))
-        visited = set()
-        visited.add((pixel_pos[0], pixel_pos[1]))
-        while len(queue) > 0:
-            curr = queue.popleft()
-
-            # Get distance from center
-            dist = abs(curr[0] - pixel_pos[0]) + abs(curr[1] - pixel_pos[1])
-
-            # check if distance is within inflation radius
-            if dist>inflation_radius_cells:
-                break
-
-            factor = np.exp(-1.0 * cost_scaling_factor *float(dist))
-            information = factor * info_gain
-            # Update information map
-            information_map[curr[1]][curr[0]] += information
-
-            for neighbor in neighbours:
-                new_pos = (curr[0] + neighbor[0], curr[1] + neighbor[1])
-                if new_pos not in visited and new_pos[0] >= 0 and new_pos[1] >= 0 and new_pos[0] < information_map.shape[1] and new_pos[1] < information_map.shape[0]:
-                    visited.add(new_pos)
-                    queue.append(new_pos)
-
-
-    def visualise_utility(self):
-        
-        info_offset = 5.0 
-
-         # Create information map
-        info_map = np.zeros(self.map_data.shape)
-
-        # Iterate through all available tasks
-        for task in self.env.available_tasks:
-            info_utility = 1
-            # Get info gain 
-            info_gain = task.info_gain
-            # get e2 weight
-            e2_weight = 1
-            if task.task_type == "frontier":
-                e2_weight = self.env.exploration_weight
-            elif task.task_type == "coverage":
-                e2_weight = 1-self.env.exploration_weight
-            
-            # Total utility
-            info_utility = info_gain*e2_weight
-            # Inflate the position with a gaussian
-            self.inflate_cell_with_bfs(info_map, task.pos, info_utility+info_offset)
-
-        # Scale the map from 0 to 100
-        if(np.max(info_map) - np.min(info_map)) > 0:
-            info_map = (info_map - np.min(info_map)) / (np.max(info_map) - np.min(info_map)) * 100
-        
-        info_map = info_map.astype(np.uint8)
-        
-        # Publish the map
-        cost_map = OccupancyGrid()
-        cost_map.header.frame_id = "map"
-        cost_map.header.stamp = rospy.Time.now()
-        cost_map.info.resolution = self.scale
-        cost_map.info.width = self.map_msg.info.width
-        cost_map.info.height = self.map_msg.info.height
-        cost_map.info.origin.position.x = self.origin[0]
-        cost_map.info.origin.position.y = self.origin[1]
-        cost_map.info.origin.position.z = 0
-        cost_map.info.origin.orientation.x = 0
-        cost_map.info.origin.orientation.y = 0
-        cost_map.info.origin.orientation.z = 0
-        cost_map.info.origin.orientation.w = 1
-        cost_map.data = info_map.flatten().tolist()
-        self.info_map_pub.publish(cost_map)
 
 
 if __name__ == "__main__":
