@@ -69,7 +69,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
 
     def calculate_e2_weights(self):
         percent_explored = min(self.covered_area / float(self.tot_area), 1.0)
-        explore_weight = 1.0 - percent_explored**2
+        explore_weight = 1.0 - percent_explored
         return explore_weight
 
     def prepare_high_env(self):
@@ -185,50 +185,67 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             for name in self.agent_active_status:
                 status = task_listener.getStatus(name)
                 curr_goal_id = task_listener.getGoalID(name)
-                if status == 2 and solver.reached(self.robot_info_dict[name], curr_goal_id):
+                if status == 2:
+                    solver.reached(self.robot_info_dict[name], curr_goal_id)
                     agent_reached[name] = True
                     agent_reached_flag = True
 
-            if self.timer_flag or agent_reached_flag:
-                unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
-                visited_coverage = self.env.get_visited_coverage_tasks_pos()
+            if not self.timer_flag and not agent_reached_flag:
+                self.rate.sleep()
+                continue
 
-                # reassign tasks
-                # TODO: aggregate valid robots and reassign
-                avail_robots = []
+            unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
+            visited_coverage = self.env.get_visited_coverage_tasks_pos()
+
+            # get available robots
+            avail_robots = []
+            if self.timer_flag:
                 for name in self.agent_active_status:
+                    # don't reassign if about to do search behavior
                     if (
                         self.robot_info_dict[name].curr
                         and self.robot_info_dict[name].curr.task_type == "coverage"
                         and not agent_reached[name]
+                        and math.dist(self.robot_info_dict[name].pos, self.robot_info_dict[name].curr.pos) <= 0.5
                     ):
                         self.env.update_utility(
                             self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn
                         )
                         continue
                     avail_robots.append(name)
-                names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
-                for name in names:
-                    task_listener.setBusyStatus(name)
-                self.send_visited_to_task_graph()
-                self.timer_flag = False
+            elif agent_reached_flag:
+                for name in agent_reached.keys():
+                    if agent_reached[name]:
+                        avail_robots.append(name)
+                    # don't reassign if not reached
+                    else:
+                        self.env.update_utility(
+                            self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn
+                     )                    
 
-                if len(self.env.available_tasks) > 0:
-                    self.visualise_utility()
+            # reassign for available robots
+            names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
+            for name in names:
+                task_listener.setBusyStatus(name)
+            self.send_visited_to_task_graph()
+            self.timer_flag = False
 
-                if len(names) > 0:
-                    self.publish_visualize(
-                        names,
-                        starts,
-                        goals,
-                        goal_types,
-                        goal_ids,
-                        unvisited_coverage,
-                        visited_coverage,
-                    )
-                    pe = Float32()
-                    pe.data = min(self.covered_area / self.tot_area, 1.0)
-                    self.area_explored_pub.publish(pe)
+            if len(self.env.available_tasks) > 0:
+                self.visualise_utility()
+
+            if len(names) > 0:
+                self.publish_visualize(
+                    names,
+                    starts,
+                    goals,
+                    goal_types,
+                    goal_ids,
+                    unvisited_coverage,
+                    visited_coverage,
+                )
+                pe = Float32()
+                pe.data = min(self.covered_area / self.tot_area, 1.0)
+                self.area_explored_pub.publish(pe)
 
             self.rate.sleep()
 

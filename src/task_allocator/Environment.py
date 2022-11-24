@@ -135,9 +135,10 @@ class UnknownEnvironment:
     def euclidean(self, x1, x2):
         return np.linalg.norm([x1[0] - x2[0], x1[1] - x2[1]])
 
-    def get_highest_priority_tasks(self):
+    def get_highest_priority_coverage_tasks(self):
+        avail_coverage = self.get_unvisited_coverage_tasks()
         sorted_tasks = sorted(
-            self.available_tasks, key=lambda t: t.info_gain, reverse=True
+            avail_coverage, key=lambda t: t.info_gain, reverse=True
         )
         return sorted_tasks
 
@@ -159,7 +160,7 @@ class UnknownEnvironment:
         unvisited = []
         for id, ct in self.coverage_tasks_dict.items():
             if not ct.visited:
-                unvisited.append(id)
+                unvisited.append(ct)
         return unvisited
 
     def get_unvisited_coverage_tasks_pos(self):
@@ -193,11 +194,23 @@ class UnknownEnvironment:
             task_pos[idx, :] = task.pos
         return task_pos
 
-    def get_n_closest_tasks(self, n, robot_pos):
-        C = np.linalg.norm(self.get_available_task_pos() - robot_pos, axis=1)
+    def get_n_closest_tasks(self, n, robot_pos, task_type=None):
+        if task_type == "frontier":
+            avail_task_pos = np.array([f.pos for f in  self.frontier_tasks])
+            avail_tasks = self.frontier_tasks
+        elif task_type == "coverage":
+            avail_task_pos = self.get_unvisited_coverage_tasks_pos()
+            avail_tasks = self.get_unvisited_coverage_tasks()
+        else:
+            avail_task_pos = self.get_available_task_pos()
+            avail_tasks = self.available_tasks
+        assert(len(avail_tasks) == len(avail_task_pos))
+        if len(avail_tasks) == 0:
+            return []
+        C = np.linalg.norm(avail_task_pos - robot_pos, axis=1)
         min_node_list = np.argsort(C)
         n_tasks_idx = min_node_list[:n]
-        return [self.available_tasks[t] for t in n_tasks_idx]
+        return [avail_tasks[t] for t in n_tasks_idx]
 
     def update_tasks(
         self,
@@ -231,8 +244,8 @@ class UnknownEnvironment:
         self.available_tasks = []
         for task in self.frontier_tasks:
             self.available_tasks.append(task)
-        for task_id in self.get_unvisited_coverage_tasks():
-            self.available_tasks.append(self.coverage_tasks_dict[task_id])
+        for task in self.get_unvisited_coverage_tasks():
+            self.available_tasks.append(task)
         self.reset_utility()
 
     def update_robot_info(self, robot_info_dict={}):
