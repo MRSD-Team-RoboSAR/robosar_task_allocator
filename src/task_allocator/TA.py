@@ -11,7 +11,6 @@ import rospy
 import matplotlib.pyplot as plt
 
 # import mTSP_utils
-import math
 import numpy as np
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
@@ -478,3 +477,97 @@ class TA_HIGH(TA):
     #         ))
 
     #     return assigned_names, assigned_tasks
+
+class TA_HIGH_OA(TA_HIGH):
+    """
+    HIGH Task Allocator: Hierarchical Information Gain Heuristic
+    With optimal assignment
+    """
+
+    def create_cost_matrix(self, names, task_list, cached_dist, cost_calculator):
+        C = np.zeros((len(names), len(task_list)))
+        for i, robot_id in enumerate(names):
+            for j, task in enumerate(task_list):
+                rp = self.robot_info_dict[robot_id].pos
+                if task.id in cached_dist[i]:
+                    cost = cached_dist[i][task.id]
+                else:
+                    cost, _ = cost_calculator.a_star_cost(task.pos, rp, 5000)
+                C[i,j] = cost
+        return C
+
+    def get_optimal_assignment(self, C, names, task_list):
+        assigned_dict = {}
+        row_ind, col_ind = linear_sum_assignment(C)
+        for i in range(len(row_ind)):
+            assigned_dict[names[row_ind[i]]] = task_list[col_ind[i]]
+        return assigned_dict
+
+
+    def assign(self, names, cost_calculator):
+        # (List[str], CostCalculator) -> Task
+        assigned_names = []
+        assigned_tasks = []
+        greedy_assigned_tasks = []
+        cached_dist = [{} for _ in names]
+        avail_robots = set(names)
+        rospy.logwarn("calculating")
+
+        for robot_id in names:
+            # set current task to unassigned
+            if self.robot_info_dict[robot_id].curr is not None:
+                self.robot_info_dict[robot_id].curr.assigned = False
+        
+        for i, robot_id in enumerate(names):
+            # closest tasks
+            rp = self.robot_info_dict[robot_id].pos
+            n_tasks, dist_fn = self.get_relevant_tasks(rp, cost_calculator)
+            if len(n_tasks) == 0:
+                print("{} unused".format(robot_id))
+                continue
+            # costs to each task
+            for j in range(len(n_tasks)):
+                cached_dist[i][n_tasks[j].id] = dist_fn[j]
+            dist_cost_fn = dist_fn / np.max(dist_fn)
+            # calculate task priorities based on info_gain
+            info_gain = np.array([n_tasks[i].info_gain for i in range(len(n_tasks))])
+            utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
+            e2_weights = self.prepare_e2_weights(n_tasks)
+            reward_fn = (2 * utility_fn - dist_cost_fn) * info_gain * e2_weights
+            # greedy assignment
+            best_node_list = np.argsort(reward_fn)[::-1]
+            best_node = None # Task
+            for i in best_node_list:
+                if not n_tasks[i].visited and not n_tasks[i].assigned:
+                    best_node = n_tasks[i]
+                    if n_tasks[i].task_type == "frontier":
+                        best_node.visited = True
+                    best_node.assigned = True
+                    # plot
+                    # pix_rp = utils.m_to_pixels(
+                    #     rp, cost_calculator.scale, cost_calculator.origin
+                    # )
+                    # pix_goal = utils.m_to_pixels(
+                    #     best_node.pos, cost_calculator.scale, cost_calculator.origin
+                    # )
+                    # plt.plot([pix_rp[0], pix_goal[0]], [pix_rp[1], pix_goal[1]], '-m')
+                    break
+            if best_node:
+                greedy_assigned_tasks.append(best_node)
+        
+        print("Tasks: {}", [t.pos for t in greedy_assigned_tasks])
+        C = self.create_cost_matrix(names, greedy_assigned_tasks, cached_dist, cost_calculator)
+        print("C: ", C)
+        assigned_dict = self.get_optimal_assignment(C, names, greedy_assigned_tasks)
+        for robot_id, task in assigned_dict.items():
+            self.env.update_utility(task, cost_calculator.utility_discount_fn)
+            avail_robots.remove(robot_id)
+            assigned_names.append(robot_id)
+            assigned_tasks.append(task)
+            print(
+                "Assigned {}: {} task {} at {}".format(
+                    robot_id, task.task_type, task.id, task.pos
+                )
+            )
+
+        return assigned_names, assigned_tasks

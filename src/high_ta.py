@@ -2,7 +2,7 @@
 
 import numpy as np
 import rospy
-import skimage.measure
+import math
 import task_allocator.utils as utils
 from frontier_ta import FrontierAssignmentCommander, RobotInfo
 from generate_graph.gridmap import OccupancyGridMap
@@ -29,6 +29,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.covered_area = 0.0
         self.area_explored_pub = rospy.Publisher("/percent_completed", Float32, queue_size=1)
         self.info_map_pub = rospy.Publisher("/information_map", OccupancyGrid, queue_size=1)
+        self.downsample = 5
         self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
 
     def frontier_callback(self, msg):
@@ -144,7 +145,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.env = UnknownEnvironment(
             frontier_tasks=self.frontiers, robot_info=self.robot_info_dict
         )
-        solver = TA_HIGH(self.env)
+        solver = TA_HIGH_OA(self.env)
 
         # Create listener object
         task_listener = TaskListenerRobosarControl(
@@ -247,6 +248,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                 pe.data = min(self.covered_area / self.tot_area, 1.0)
                 self.area_explored_pub.publish(pe)
 
+            print()
             self.rate.sleep()
 
     def inflate_cell_with_bfs(self, information_map, pos, info_gain):

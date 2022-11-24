@@ -36,7 +36,7 @@ class FrontierAssignmentCommander(TaskCommander):
     def __init__(self):
         super().__init__()
         self.reassign_period = rospy.get_param("~reassign_period", 30.0)
-        self.utility_range = rospy.get_param("~utility_range", 1.0)
+        self.utility_range = rospy.get_param("~utility_range", 1.5)
         timer = rospy.Timer(rospy.Duration(self.reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
@@ -262,7 +262,6 @@ class FrontierAssignmentCommander(TaskCommander):
         self.task_pub.publish(task_msg)
 
         # plot
-        plt.clf()
         utils.plot_pgm_data(self.map_data)
         if len(self.frontiers) > 0:
             pix_frontier = self.arr_m_to_pixels(self.frontiers)
@@ -289,6 +288,7 @@ class FrontierAssignmentCommander(TaskCommander):
                     zorder=90,
                 )
         self.publish_image(self.image_pub)
+        plt.clf()
 
     def execute(self):
         """
