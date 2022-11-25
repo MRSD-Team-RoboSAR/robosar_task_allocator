@@ -140,8 +140,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
 
         # Create TA
         for name, active in self.agent_active_status.items():
-            robot_info = RobotInfo(name=name, pos=robot_pos[name])
+            robot_info = RobotInfo(name=name)
             robot_info.active = active
+            robot_info.pos = robot_pos[name] if name in robot_pos else []
             self.robot_info_dict[name] = robot_info
         self.env = UnknownEnvironment(
             frontier_tasks=self.frontiers, robot_info=self.robot_info_dict
