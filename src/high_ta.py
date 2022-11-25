@@ -139,8 +139,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         robot_pos = self.get_agent_position()
 
         # Create TA
-        for name in self.agent_active_status:
+        for name, active in self.agent_active_status.items():
             robot_info = RobotInfo(name=name, pos=robot_pos[name])
+            robot_info.active = active
             self.robot_info_dict[name] = robot_info
         self.env = UnknownEnvironment(
             frontier_tasks=self.frontiers, robot_info=self.robot_info_dict
@@ -161,7 +162,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
         self.publish_image(self.image_pub)
 
-        rospy.loginfo("Starting frontier task allocator")
+        rospy.loginfo("Starting HIGH task allocator")
 
         self.prepare_env()
         self.prepare_high_env()
@@ -177,6 +178,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.timer_flag = False
 
         while not rospy.is_shutdown():
+            # fleet update
+            self.fleet_update()
+
             # get frontiers
             if not self.prepare_env() or not self.prepare_high_env():
                 continue
@@ -184,12 +188,13 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             agent_reached = {name: False for name in self.agent_active_status}
             agent_reached_flag = False
             for name in self.agent_active_status:
-                status = task_listener.getStatus(name)
-                curr_goal_id = task_listener.getGoalID(name)
-                if status == 2:
-                    solver.reached(self.robot_info_dict[name], curr_goal_id)
-                    agent_reached[name] = True
-                    agent_reached_flag = True
+                if self.agent_active_status[name]:
+                    status = task_listener.getStatus(name)
+                    curr_goal_id = task_listener.getGoalID(name)
+                    if status == 2:
+                        solver.reached(self.robot_info_dict[name], curr_goal_id)
+                        agent_reached[name] = True
+                        agent_reached_flag = True
 
             if not self.timer_flag and not agent_reached_flag:
                 self.rate.sleep()
@@ -202,6 +207,8 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             avail_robots = []
             if self.timer_flag:
                 for name in self.agent_active_status:
+                    if not self.agent_active_status[name]:
+                        continue
                     # don't reassign if about to do search behavior
                     if (
                         self.robot_info_dict[name].curr
@@ -216,6 +223,8 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                     avail_robots.append(name)
             elif agent_reached_flag:
                 for name in agent_reached.keys():
+                    if not self.agent_active_status[name]:
+                        continue
                     if agent_reached[name]:
                         avail_robots.append(name)
                     # don't reassign if not reached

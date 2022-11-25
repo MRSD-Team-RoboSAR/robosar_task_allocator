@@ -47,7 +47,6 @@ class TaskCommander(ABC):
                 self.agent_active_status[a] = True
             rospy.loginfo(self.agent_active_status)
             self.callback_triggered = True
-
         except rospy.ServiceException as e:
             rospy.loginfo("Agent status service call failed: %s" % e)
 

@@ -555,7 +555,7 @@ class TA_HIGH_OA(TA_HIGH):
             if best_node:
                 greedy_assigned_tasks.append(best_node)
         
-        print("Tasks: {}", [t.pos for t in greedy_assigned_tasks])
+        print("Tasks: ", [t.pos for t in greedy_assigned_tasks])
         C = self.create_cost_matrix(names, greedy_assigned_tasks, cached_dist, cost_calculator)
         print("C: ", C)
         assigned_dict = self.get_optimal_assignment(C, names, greedy_assigned_tasks)
