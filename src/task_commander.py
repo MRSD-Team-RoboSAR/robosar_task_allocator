@@ -30,12 +30,15 @@ class TaskCommander(ABC):
         self.task_num_pub = rospy.Publisher("tasks_completed", Int32, queue_size=10)
 
     def status_callback(self, msg):
+        self.callback_triggered = True
+
+    def get_active_agents(self):
         """
-        Agent status callback
+        Updates agent_active_status
         """
+        rospy.loginfo("calling agent status service")
         rospy.wait_for_service("/robosar_agent_bringup_node/agent_status")
         try:
-            rospy.loginfo("calling service")
             get_status = rospy.ServiceProxy(
                 "/robosar_agent_bringup_node/agent_status", agent_status
             )
@@ -46,27 +49,6 @@ class TaskCommander(ABC):
             for a in active_agents:
                 self.agent_active_status[a] = True
             rospy.loginfo(self.agent_active_status)
-            self.callback_triggered = True
-        except rospy.ServiceException as e:
-            rospy.loginfo("Agent status service call failed: %s" % e)
-
-    def get_active_agents(self):
-        """
-        Updates agent_active_status
-        """
-        rospy.loginfo("Starting task allocator")
-        rospy.loginfo("calling agent status service")
-        rospy.wait_for_service("/robosar_agent_bringup_node/agent_status")
-        try:
-            get_status = rospy.ServiceProxy(
-                "/robosar_agent_bringup_node/agent_status", agent_status
-            )
-            resp1 = get_status()
-            active_agents = resp1.agents_active
-            for a in active_agents:
-                self.agent_active_status[a] = True
-            rospy.loginfo("{} agents active".format(len(self.agent_active_status)))
-            assert len(self.agent_active_status) > 0
         except rospy.ServiceException as e:
             rospy.loginfo("Agent status service call failed: %s" % e)
             raise Exception("Agent status service call failed")

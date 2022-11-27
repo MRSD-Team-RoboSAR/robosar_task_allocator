@@ -210,6 +210,8 @@ class FrontierAssignmentCommander(TaskCommander):
         ) = self.get_map_info()
         robot_pos = self.get_agent_position()
         for r, rp in robot_pos.items():
+            if r not in self.robot_info_dict:
+                self.robot_info_dict[r] = RobotInfo(name=r)
             self.robot_info_dict[r].pos = rp
         resized_image = skimage.measure.block_reduce(
             self.map_data, (self.downsample, self.downsample), np.max
@@ -301,6 +303,7 @@ class FrontierAssignmentCommander(TaskCommander):
     def fleet_update(self):
         # fleet update
         if self.callback_triggered:
+            self.get_active_agents()
             for agent, active in self.agent_active_status.items():
                 if not active and agent in self.robot_info_dict and self.robot_info_dict[agent].active:
                     rospy.logwarn("FLEET UPDATE: {} died".format(agent))
