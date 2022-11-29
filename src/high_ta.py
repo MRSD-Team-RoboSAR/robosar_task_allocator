@@ -70,7 +70,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
 
     def calculate_e2_weights(self):
         percent_explored = min(self.covered_area / float(self.tot_area), 1.0)
-        explore_weight = 1.0 - percent_explored
+        explore_weight = min(1.1 - percent_explored, 1.0)
         return explore_weight
 
     def prepare_high_env(self):
@@ -150,7 +150,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         solver = TA_HIGH_OA(self.env)
 
         # Create listener object
-        task_listener = TaskListenerRobosarControl(
+        self.task_listener = TaskListenerRobosarControl(
             [name for name in self.agent_active_status]
         )
 
@@ -170,7 +170,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         avail_robots = [name for name in self.agent_active_status]
         names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
         for name in names:
-            task_listener.setBusyStatus(name)
+            self.task_listener.setBusyStatus(name)
         if len(names) > 0:
             self.publish_visualize(names, starts, goals, goal_types, goal_ids)
             pe = Float32()
@@ -190,8 +190,8 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             agent_reached_flag = False
             for name in self.agent_active_status:
                 if self.agent_active_status[name]:
-                    status = task_listener.getStatus(name)
-                    curr_goal_id = task_listener.getGoalID(name)
+                    status = self.task_listener.getStatus(name)
+                    curr_goal_id = self.task_listener.getGoalID(name)
                     if status == 2:
                         solver.reached(self.robot_info_dict[name], curr_goal_id)
                         agent_reached[name] = True
@@ -237,7 +237,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             # reassign for available robots
             names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
             for name in names:
-                task_listener.setBusyStatus(name)
+                self.task_listener.setBusyStatus(name)
             self.send_visited_to_task_graph()
             self.timer_flag = False
 

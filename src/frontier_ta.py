@@ -46,6 +46,7 @@ class FrontierAssignmentCommander(TaskCommander):
             "/robosar_agent_bringup_node/status", Bool, self.status_callback
         )
         self.tflistener = tf.TransformListener()
+        self.task_listener = None
         self.timer_flag = False
         self.frontiers = []
         self.coverage_tasks = {}
@@ -313,7 +314,9 @@ class FrontierAssignmentCommander(TaskCommander):
                 elif active and agent not in self.robot_info_dict:
                     rospy.logwarn("FLEET UPDATE: new agent {}".format(agent))
                     self.robot_info_dict[agent] = RobotInfo(name=agent)
+                    self.task_listener.add_robot_listener(agent)
                 self.robot_info_dict[agent].active = active
+            self.callback_triggered = False
 
     def execute(self):
         """
@@ -354,7 +357,7 @@ class FrontierAssignmentCommander(TaskCommander):
         solver = TA_frontier_greedy(self.env)
 
         # Create listener object
-        task_listener = TaskListenerRobosarControl(
+        self.task_listener = TaskListenerRobosarControl(
             [name for name in self.agent_active_status]
         )
 
@@ -391,7 +394,7 @@ class FrontierAssignmentCommander(TaskCommander):
                 goals.append(goal)
                 goal_types.append(goal_type)
                 goal_ids.append(goal_id)
-                task_listener.setBusyStatus(name)
+                self.task_listener.setBusyStatus(name)
         if len(names) > 0:
             self.publish_visualize(names, starts, goals, goal_types, goal_ids)
         self.timer_flag = False
@@ -411,7 +414,7 @@ class FrontierAssignmentCommander(TaskCommander):
             agent_reached = {name: False for name in curr_active_robots}
             agent_reached_flag = False
             for name in curr_active_robots:
-                status = task_listener.getStatus(name)
+                status = self.task_listener.getStatus(name)
                 if status == 2:
                     agent_reached[name] = True
                     agent_reached_flag = True
@@ -444,8 +447,8 @@ class FrontierAssignmentCommander(TaskCommander):
                         goals.append(goal)
                         goal_types.append(goal_type)
                         goal_ids.append(goal_id)
-                        task_listener.setBusyStatus(name)
-                    # print("{}: status {}".format(name, task_listener.getStatus(name)))
+                        self.task_listener.setBusyStatus(name)
+                    # print("{}: status {}".format(name, self.task_listener.getStatus(name)))
                 self.send_visited_to_task_graph()
                 self.timer_flag = False
 
