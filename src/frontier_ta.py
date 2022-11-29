@@ -212,6 +212,7 @@ class FrontierAssignmentCommander(TaskCommander):
         for r, rp in robot_pos.items():
             if r not in self.robot_info_dict:
                 self.robot_info_dict[r] = RobotInfo(name=r)
+                self.robot_info_dict[r].active = True
             self.robot_info_dict[r].pos = rp
         resized_image = skimage.measure.block_reduce(
             self.map_data, (self.downsample, self.downsample), np.max

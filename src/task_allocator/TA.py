@@ -372,6 +372,7 @@ class TA_HIGH(TA):
             # set current task to unassigned
             if self.robot_info_dict[robot_id].curr is not None:
                 self.robot_info_dict[robot_id].curr.assigned = False
+                self.robot_info_dict[robot_id].curr = None
         
         for robot_id in names:
             # closest tasks
@@ -517,6 +518,7 @@ class TA_HIGH_OA(TA_HIGH):
             # set current task to unassigned
             if self.robot_info_dict[robot_id].curr is not None:
                 self.robot_info_dict[robot_id].curr.assigned = False
+                self.robot_info_dict[robot_id].curr = None
         
         for i, robot_id in enumerate(names):
             # closest tasks
