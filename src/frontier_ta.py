@@ -115,7 +115,7 @@ class FrontierAssignmentCommander(TaskCommander):
                 continue
             now = rospy.Time.now()
             self.tflistener.waitForTransform(
-                "map", name + "/base_link", now, rospy.Duration(1.0)
+                "map", name + "/base_link", now, rospy.Duration(5.0)
             )
             (trans, rot) = self.tflistener.lookupTransform(
                 "map", name + "/base_link", now
