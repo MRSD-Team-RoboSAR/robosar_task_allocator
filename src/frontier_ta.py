@@ -115,10 +115,11 @@ class FrontierAssignmentCommander(TaskCommander):
                 continue
             now = rospy.Time.now()
             self.tflistener.waitForTransform(
-                "map", name + "/base_link", now, rospy.Duration(5.0)
+                "map", name + "/base_link", rospy.Time(0), rospy.Duration(60.0)
             )
+            now = rospy.Time.now()
             (trans, rot) = self.tflistener.lookupTransform(
-                "map", name + "/base_link", now
+                "map", name + "/base_link", rospy.Time(0)
             )
             robot_pos[name] = [trans[0], trans[1]]
         return robot_pos
