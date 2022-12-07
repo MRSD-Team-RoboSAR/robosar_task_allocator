@@ -2,7 +2,7 @@
 
 import numpy as np
 import rospy
-import skimage.measure
+import math
 import task_allocator.utils as utils
 from frontier_ta import FrontierAssignmentCommander, RobotInfo
 from generate_graph.gridmap import OccupancyGridMap
@@ -29,6 +29,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.covered_area = 0.0
         self.area_explored_pub = rospy.Publisher("/percent_completed", Float32, queue_size=1)
         self.info_map_pub = rospy.Publisher("/information_map", OccupancyGrid, queue_size=1)
+        self.downsample = 5
         self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
 
     def frontier_callback(self, msg):
@@ -69,7 +70,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
 
     def calculate_e2_weights(self):
         percent_explored = min(self.covered_area / float(self.tot_area), 1.0)
-        explore_weight = 1.0 - percent_explored**2
+        explore_weight = min(1.1 - percent_explored, 1.0)
         return explore_weight
 
     def prepare_high_env(self):
@@ -138,16 +139,18 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         robot_pos = self.get_agent_position()
 
         # Create TA
-        for name in self.agent_active_status:
-            robot_info = RobotInfo(name=name, pos=robot_pos[name])
+        for name, active in self.agent_active_status.items():
+            robot_info = RobotInfo(name=name)
+            robot_info.active = active
+            robot_info.pos = robot_pos[name] if name in robot_pos else []
             self.robot_info_dict[name] = robot_info
         self.env = UnknownEnvironment(
             frontier_tasks=self.frontiers, robot_info=self.robot_info_dict
         )
-        solver = TA_HIGH(self.env)
+        solver = TA_HIGH_OA(self.env)
 
         # Create listener object
-        task_listener = TaskListenerRobosarControl(
+        self.task_listener = TaskListenerRobosarControl(
             [name for name in self.agent_active_status]
         )
 
@@ -160,14 +163,14 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
         self.publish_image(self.image_pub)
 
-        rospy.loginfo("Starting frontier task allocator")
+        rospy.loginfo("Starting HIGH task allocator")
 
         self.prepare_env()
         self.prepare_high_env()
         avail_robots = [name for name in self.agent_active_status]
         names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
         for name in names:
-            task_listener.setBusyStatus(name)
+            self.task_listener.setBusyStatus(name)
         if len(names) > 0:
             self.publish_visualize(names, starts, goals, goal_types, goal_ids)
             pe = Float32()
@@ -176,6 +179,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.timer_flag = False
 
         while not rospy.is_shutdown():
+            # fleet update
+            self.fleet_update()
+
             # get frontiers
             if not self.prepare_env() or not self.prepare_high_env():
                 continue
@@ -183,53 +189,76 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
             agent_reached = {name: False for name in self.agent_active_status}
             agent_reached_flag = False
             for name in self.agent_active_status:
-                status = task_listener.getStatus(name)
-                curr_goal_id = task_listener.getGoalID(name)
-                if status == 2 and solver.reached(self.robot_info_dict[name], curr_goal_id):
-                    agent_reached[name] = True
-                    agent_reached_flag = True
+                if self.agent_active_status[name]:
+                    status = self.task_listener.getStatus(name)
+                    curr_goal_id = self.task_listener.getGoalID(name)
+                    if status == 2:
+                        solver.reached(self.robot_info_dict[name], curr_goal_id)
+                        agent_reached[name] = True
+                        agent_reached_flag = True
 
-            if self.timer_flag or agent_reached_flag:
-                unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
-                visited_coverage = self.env.get_visited_coverage_tasks_pos()
+            if not self.timer_flag and not agent_reached_flag:
+                self.rate.sleep()
+                continue
 
-                # reassign tasks
-                # TODO: aggregate valid robots and reassign
-                avail_robots = []
+            unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
+            visited_coverage = self.env.get_visited_coverage_tasks_pos()
+
+            # get available robots
+            avail_robots = []
+            if self.timer_flag:
                 for name in self.agent_active_status:
+                    if not self.agent_active_status[name]:
+                        continue
+                    # don't reassign if about to do search behavior
                     if (
                         self.robot_info_dict[name].curr
                         and self.robot_info_dict[name].curr.task_type == "coverage"
                         and not agent_reached[name]
+                        and math.dist(self.robot_info_dict[name].pos, self.robot_info_dict[name].curr.pos) <= 0.5
                     ):
                         self.env.update_utility(
                             self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn
                         )
                         continue
                     avail_robots.append(name)
-                names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
-                for name in names:
-                    task_listener.setBusyStatus(name)
-                self.send_visited_to_task_graph()
-                self.timer_flag = False
+            elif agent_reached_flag:
+                for name in agent_reached.keys():
+                    if not self.agent_active_status[name]:
+                        continue
+                    if agent_reached[name]:
+                        avail_robots.append(name)
+                    # don't reassign if not reached
+                    else:
+                        self.env.update_utility(
+                            self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn
+                     )                    
 
-                if len(self.env.available_tasks) > 0:
-                    self.visualise_utility()
+            # reassign for available robots
+            names, starts, goals, goal_types, goal_ids = self.reassign(avail_robots, solver)
+            for name in names:
+                self.task_listener.setBusyStatus(name)
+            self.send_visited_to_task_graph()
+            self.timer_flag = False
 
-                if len(names) > 0:
-                    self.publish_visualize(
-                        names,
-                        starts,
-                        goals,
-                        goal_types,
-                        goal_ids,
-                        unvisited_coverage,
-                        visited_coverage,
-                    )
-                    pe = Float32()
-                    pe.data = min(self.covered_area / self.tot_area, 1.0)
-                    self.area_explored_pub.publish(pe)
+            if len(self.env.available_tasks) > 0:
+                self.visualise_utility()
 
+            if len(names) > 0:
+                self.publish_visualize(
+                    names,
+                    starts,
+                    goals,
+                    goal_types,
+                    goal_ids,
+                    unvisited_coverage,
+                    visited_coverage,
+                )
+                pe = Float32()
+                pe.data = min(self.covered_area / self.tot_area, 1.0)
+                self.area_explored_pub.publish(pe)
+
+            print()
             self.rate.sleep()
 
     def inflate_cell_with_bfs(self, information_map, pos, info_gain):

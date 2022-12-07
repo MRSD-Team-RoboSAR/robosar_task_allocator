@@ -9,6 +9,7 @@ import tf
 from robosar_messages.msg import *
 from robosar_messages.srv import *
 from sensor_msgs.msg import Image
+from std_msgs.msg import Bool
 
 import task_allocator.utils as utils
 from generate_graph.gridmap import OccupancyGridMap
@@ -29,18 +30,23 @@ class RobotInfo:
         self.costs = costs
         self.utility = []
         self.obstacle_costs = []
-        # self.proximity_bonus = []
+        self.active = False
 
 
 class FrontierAssignmentCommander(TaskCommander):
+    
     def __init__(self):
         super().__init__()
         self.reassign_period = rospy.get_param("~reassign_period", 30.0)
-        self.utility_range = rospy.get_param("~utility_range", 1.0)
+        self.utility_range = rospy.get_param("~utility_range", 1.5)
         timer = rospy.Timer(rospy.Duration(self.reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
+        rospy.Subscriber(
+            "/robosar_agent_bringup_node/status", Bool, self.status_callback
+        )
         self.tflistener = tf.TransformListener()
+        self.task_listener = None
         self.timer_flag = False
         self.frontiers = []
         self.coverage_tasks = {}
@@ -105,12 +111,15 @@ class FrontierAssignmentCommander(TaskCommander):
         """
         robot_pos = {}
         for name in self.agent_active_status:
+            if not self.agent_active_status[name]:
+                continue
             now = rospy.Time.now()
             self.tflistener.waitForTransform(
-                "map", name + "/base_link", now, rospy.Duration(1.0)
+                "map", name + "/base_link", rospy.Time(0), rospy.Duration(60.0)
             )
+            now = rospy.Time.now()
             (trans, rot) = self.tflistener.lookupTransform(
-                "map", name + "/base_link", now
+                "map", name + "/base_link", rospy.Time(0)
             )
             robot_pos[name] = [trans[0], trans[1]]
         return robot_pos
@@ -203,6 +212,9 @@ class FrontierAssignmentCommander(TaskCommander):
         ) = self.get_map_info()
         robot_pos = self.get_agent_position()
         for r, rp in robot_pos.items():
+            if r not in self.robot_info_dict:
+                self.robot_info_dict[r] = RobotInfo(name=r)
+                self.robot_info_dict[r].active = True
             self.robot_info_dict[r].pos = rp
         resized_image = skimage.measure.block_reduce(
             self.map_data, (self.downsample, self.downsample), np.max
@@ -262,7 +274,6 @@ class FrontierAssignmentCommander(TaskCommander):
         self.task_pub.publish(task_msg)
 
         # plot
-        plt.clf()
         utils.plot_pgm_data(self.map_data)
         if len(self.frontiers) > 0:
             pix_frontier = self.arr_m_to_pixels(self.frontiers)
@@ -274,21 +285,39 @@ class FrontierAssignmentCommander(TaskCommander):
             pix_coverage = self.arr_m_to_pixels(visited_coverage)
             plt.plot(pix_coverage[:, 0], pix_coverage[:, 1], "bo", zorder=100)
         for id in self.agent_active_status:
-            pix_rob = utils.m_to_pixels(
-                self.robot_info_dict[id].pos, self.scale, self.origin
-            )
-            if self.robot_info_dict[id].curr is not None:
-                pix_goal = utils.m_to_pixels(
-                    self.robot_info_dict[id].curr.pos, self.scale, self.origin
+            if self.agent_active_status[id]:
+                pix_rob = utils.m_to_pixels(
+                    self.robot_info_dict[id].pos, self.scale, self.origin
                 )
-                plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
-                plt.plot(
-                    [pix_rob[0], pix_goal[0]],
-                    [pix_rob[1], pix_goal[1]],
-                    "k-",
-                    zorder=90,
-                )
+                if self.robot_info_dict[id].curr is not None:
+                    pix_goal = utils.m_to_pixels(
+                        self.robot_info_dict[id].curr.pos, self.scale, self.origin
+                    )
+                    plt.plot(pix_rob[0], pix_rob[1], "ro", zorder=100)
+                    plt.plot(
+                        [pix_rob[0], pix_goal[0]],
+                        [pix_rob[1], pix_goal[1]],
+                        "k-",
+                        zorder=90,
+                    )
         self.publish_image(self.image_pub)
+        plt.clf()
+
+    def fleet_update(self):
+        # fleet update
+        if self.callback_triggered:
+            self.get_active_agents()
+            for agent, active in self.agent_active_status.items():
+                if not active and agent in self.robot_info_dict and self.robot_info_dict[agent].active:
+                    rospy.logwarn("FLEET UPDATE: {} died".format(agent))
+                elif active and agent in self.robot_info_dict and not self.robot_info_dict[agent].active:
+                    rospy.logwarn("FLEET UPDATE: {} is back".format(agent))
+                elif active and agent not in self.robot_info_dict:
+                    rospy.logwarn("FLEET UPDATE: new agent {}".format(agent))
+                    self.robot_info_dict[agent] = RobotInfo(name=agent)
+                    self.task_listener.add_robot_listener(agent)
+                self.robot_info_dict[agent].active = active
+            self.callback_triggered = False
 
     def execute(self):
         """
@@ -318,8 +347,10 @@ class FrontierAssignmentCommander(TaskCommander):
         robot_pos = self.get_agent_position()
 
         # Create TA
-        for name in self.agent_active_status:
-            robot_info = RobotInfo(pos=robot_pos[name])
+        for name, active in self.agent_active_status.items():
+            robot_info = RobotInfo(name=name)
+            robot_info.active = active
+            robot_info.pos = robot_pos[name] if name in robot_pos else []
             self.robot_info_dict[name] = robot_info
         self.env = UnknownEnvironment(
             frontier_tasks=self.frontiers, robot_info=self.robot_info_dict
@@ -327,7 +358,7 @@ class FrontierAssignmentCommander(TaskCommander):
         solver = TA_frontier_greedy(self.env)
 
         # Create listener object
-        task_listener = TaskListenerRobosarControl(
+        self.task_listener = TaskListenerRobosarControl(
             [name for name in self.agent_active_status]
         )
 
@@ -364,20 +395,27 @@ class FrontierAssignmentCommander(TaskCommander):
                 goals.append(goal)
                 goal_types.append(goal_type)
                 goal_ids.append(goal_id)
-                task_listener.setBusyStatus(name)
+                self.task_listener.setBusyStatus(name)
         if len(names) > 0:
             self.publish_visualize(names, starts, goals, goal_types, goal_ids)
         self.timer_flag = False
 
         while not rospy.is_shutdown():
+            # fleet update
+            self.fleet_update()
+
             # get frontiers
             if not self.prepare_env():
                 continue
-
-            agent_reached = {name: False for name in self.agent_active_status}
+            
+            curr_active_robots = []
+            for name, active in self.agent_active_status.items():
+                if active:
+                    curr_active_robots.append(name)
+            agent_reached = {name: False for name in curr_active_robots}
             agent_reached_flag = False
-            for name in self.agent_active_status:
-                status = task_listener.getStatus(name)
+            for name in curr_active_robots:
+                status = self.task_listener.getStatus(name)
                 if status == 2:
                     agent_reached[name] = True
                     agent_reached_flag = True
@@ -395,7 +433,7 @@ class FrontierAssignmentCommander(TaskCommander):
                 goals = []
                 goal_types = []
                 goal_ids = []
-                for name in self.agent_active_status:
+                for name in curr_active_robots:
                     if (
                         self.robot_info_dict[name].curr
                         and self.robot_info_dict[name].curr.task_type == "coverage"
@@ -410,8 +448,8 @@ class FrontierAssignmentCommander(TaskCommander):
                         goals.append(goal)
                         goal_types.append(goal_type)
                         goal_ids.append(goal_id)
-                        task_listener.setBusyStatus(name)
-                    # print("{}: status {}".format(name, task_listener.getStatus(name)))
+                        self.task_listener.setBusyStatus(name)
+                    # print("{}: status {}".format(name, self.task_listener.getStatus(name)))
                 self.send_visited_to_task_graph()
                 self.timer_flag = False
 

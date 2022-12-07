@@ -11,7 +11,6 @@ import rospy
 import matplotlib.pyplot as plt
 
 # import mTSP_utils
-import math
 import numpy as np
 import task_allocator.mTSP_utils as mTSP_utils
 import task_allocator.utils as utils
@@ -330,21 +329,37 @@ class TA_HIGH(TA):
                 e2_weights[i] = exploit_weight
         return e2_weights
 
-    def get_closest_tasks(self, tasks, robot_pos, cost_calculator):
+    def get_relevant_tasks(self, robot_pos, cost_calculator):
         dist_cost = []
         n_tasks = []
+        # closest euclidean frontier tasks
+        f_tasks = self.env.get_n_closest_tasks(5, robot_pos, "frontier")
+        
+        # highest info gain coverage tasks
+        c_tasks = self.env.get_highest_priority_coverage_tasks()[:5]
+        tasks = f_tasks + c_tasks # concatenate
+
+        # calculate distances
         for task in tasks:
-            cost, found_flag = cost_calculator.a_star_cost(task.pos, robot_pos, 500)
+            cost, found_flag = cost_calculator.a_star_cost(task.pos, robot_pos, 5000)
             if found_flag:
                 dist_cost.append(cost)
                 n_tasks.append(task)
+            else:
+                rospy.logwarn("{} could not find astar path".format(task.pos))
+
         return n_tasks, np.array(dist_cost)
 
     def reached(self, robot_info, goal_id):
-        rospy.logwarn("{} reached task {}, current task is {}".format(robot_info.name, goal_id, robot_info.curr.id))
+        rospy.logwarn(
+            "{} reached task {}, current task is {}".format(
+                robot_info.name,
+                goal_id,
+                robot_info.curr.id if robot_info.curr else None,
+            )
+        )
         if goal_id is not None and goal_id in self.env.coverage_tasks_dict:
             self.env.coverage_tasks_dict[goal_id].visited = True
-        return True
 
     def assign(self, names, cost_calculator):
         # (List[str], CostCalculator) -> Task
@@ -354,28 +369,25 @@ class TA_HIGH(TA):
         rospy.logwarn("calculating")
 
         for robot_id in names:
+            # set current task to unassigned
+            if self.robot_info_dict[robot_id].curr is not None:
+                self.robot_info_dict[robot_id].curr.assigned = False
+                self.robot_info_dict[robot_id].curr = None
+        
+        for robot_id in names:
             # closest tasks
             rp = self.robot_info_dict[robot_id].pos
-            euc_tasks_to_consider = self.env.get_n_closest_tasks(n=10, robot_pos=rp)
-            n_tasks, dist_fn = self.get_closest_tasks(
-                euc_tasks_to_consider, rp, cost_calculator
-            )
-            if len(n_tasks) == 0:
-                rospy.logwarn("using euclidean")
-                n_tasks = euc_tasks_to_consider[:5]
-                dist_fn = self.prepare_task_costs(n_tasks, rp, cost_calculator)
+            n_tasks, dist_fn = self.get_relevant_tasks(rp, cost_calculator)
             if len(n_tasks) == 0:
                 print("{} unused".format(robot_id))
                 continue
             # costs to each task
             dist_cost_fn = dist_fn / np.max(dist_fn)
             # calculate task priorities based on info_gain
-            info_gain = np.array(
-                [n_tasks[i].info_gain for i in range(len(n_tasks))]
-            )
+            info_gain = np.array([n_tasks[i].info_gain for i in range(len(n_tasks))])
             utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
             e2_weights = self.prepare_e2_weights(n_tasks)
-            reward_fn = (2*utility_fn + dist_cost_fn) * info_gain * e2_weights
+            reward_fn = (2 * utility_fn - dist_cost_fn) * info_gain * e2_weights
 
             # print
             for i, t in enumerate(n_tasks):
@@ -393,12 +405,15 @@ class TA_HIGH(TA):
             best_node_list = np.argsort(reward_fn)[::-1]
             best_node = None
             for i in best_node_list:
+                rospy.logwarn(
+                    "{} task {} is visited: {}, assigned: {}".format(
+                        n_tasks[i].task_type, n_tasks[i].id, n_tasks[i].visited, n_tasks[i].assigned
+                    )
+                )
                 if not n_tasks[i].visited and not n_tasks[i].assigned:
                     best_node = n_tasks[i]
-                    if (n_tasks[i].task_type == "frontier"):
+                    if n_tasks[i].task_type == "frontier":
                         best_node.visited = True
-                    if self.robot_info_dict[robot_id].curr is not None:
-                        self.robot_info_dict[robot_id].curr.assigned = False
                     best_node.assigned = True
                     break
             if best_node is None:
@@ -463,3 +478,98 @@ class TA_HIGH(TA):
     #         ))
 
     #     return assigned_names, assigned_tasks
+
+class TA_HIGH_OA(TA_HIGH):
+    """
+    HIGH Task Allocator: Hierarchical Information Gain Heuristic
+    With optimal assignment
+    """
+
+    def create_cost_matrix(self, names, task_list, cached_dist, cost_calculator):
+        C = np.zeros((len(names), len(task_list)))
+        for i, robot_id in enumerate(names):
+            for j, task in enumerate(task_list):
+                rp = self.robot_info_dict[robot_id].pos
+                if task.id in cached_dist[i]:
+                    cost = cached_dist[i][task.id]
+                else:
+                    cost, _ = cost_calculator.a_star_cost(task.pos, rp, 5000)
+                C[i,j] = cost
+        return C
+
+    def get_optimal_assignment(self, C, names, task_list):
+        assigned_dict = {}
+        row_ind, col_ind = linear_sum_assignment(C)
+        for i in range(len(row_ind)):
+            assigned_dict[names[row_ind[i]]] = task_list[col_ind[i]]
+        return assigned_dict
+
+
+    def assign(self, names, cost_calculator):
+        # (List[str], CostCalculator) -> Task
+        assigned_names = []
+        assigned_tasks = []
+        greedy_assigned_tasks = []
+        cached_dist = [{} for _ in names]
+        avail_robots = set(names)
+        rospy.logwarn("calculating")
+
+        for robot_id in names:
+            # set current task to unassigned
+            if self.robot_info_dict[robot_id].curr is not None:
+                self.robot_info_dict[robot_id].curr.assigned = False
+                self.robot_info_dict[robot_id].curr = None
+        
+        for i, robot_id in enumerate(names):
+            # closest tasks
+            rp = self.robot_info_dict[robot_id].pos
+            n_tasks, dist_fn = self.get_relevant_tasks(rp, cost_calculator)
+            if len(n_tasks) == 0:
+                print("{} unused".format(robot_id))
+                continue
+            # costs to each task
+            for j in range(len(n_tasks)):
+                cached_dist[i][n_tasks[j].id] = dist_fn[j]
+            dist_cost_fn = dist_fn / np.max(dist_fn)
+            # calculate task priorities based on info_gain
+            info_gain = np.array([n_tasks[i].info_gain for i in range(len(n_tasks))])
+            utility_fn = np.array([n_tasks[i].utility for i in range(len(n_tasks))])
+            e2_weights = self.prepare_e2_weights(n_tasks)
+            reward_fn = (2 * utility_fn - dist_cost_fn) * info_gain * e2_weights
+            # greedy assignment
+            best_node_list = np.argsort(reward_fn)[::-1]
+            best_node = None # Task
+            for i in best_node_list:
+                if not n_tasks[i].visited and not n_tasks[i].assigned:
+                    best_node = n_tasks[i]
+                    if n_tasks[i].task_type == "frontier":
+                        best_node.visited = True
+                    best_node.assigned = True
+                    # plot
+                    # pix_rp = utils.m_to_pixels(
+                    #     rp, cost_calculator.scale, cost_calculator.origin
+                    # )
+                    # pix_goal = utils.m_to_pixels(
+                    #     best_node.pos, cost_calculator.scale, cost_calculator.origin
+                    # )
+                    # plt.plot([pix_rp[0], pix_goal[0]], [pix_rp[1], pix_goal[1]], '-m')
+                    break
+            if best_node:
+                greedy_assigned_tasks.append(best_node)
+        
+        print("Tasks: ", [t.pos for t in greedy_assigned_tasks])
+        C = self.create_cost_matrix(names, greedy_assigned_tasks, cached_dist, cost_calculator)
+        print("C: ", C)
+        assigned_dict = self.get_optimal_assignment(C, names, greedy_assigned_tasks)
+        for robot_id, task in assigned_dict.items():
+            self.env.update_utility(task, cost_calculator.utility_discount_fn)
+            avail_robots.remove(robot_id)
+            assigned_names.append(robot_id)
+            assigned_tasks.append(task)
+            print(
+                "Assigned {}: {} task {} at {}".format(
+                    robot_id, task.task_type, task.id, task.pos
+                )
+            )
+
+        return assigned_names, assigned_tasks

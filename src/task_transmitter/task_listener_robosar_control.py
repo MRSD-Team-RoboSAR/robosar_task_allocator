@@ -32,6 +32,10 @@ class TaskListenerRobosarControl:
 
             self.status_map[i] = status_keeper
 
+    def add_robot_listener(self, robot_id):
+        status_keeper = self.ControllerStatusKeeper(robot_id)
+        self.status_map[robot_id] = status_keeper
+
     def setBusyStatus(self, robot_id):
         if robot_id in self.status_map:
             print("Set busy for {}".format(robot_id))
