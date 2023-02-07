@@ -172,6 +172,8 @@ class UnknownEnvironment:
 
     def update_utility(self, goal, utility_discount_fn):
         # (Task, lambda_fn) -> None
+        if goal == None:
+            return
         goal_pos = goal.pos
         for i in range(len(self.available_tasks)):
             node_pos = self.available_tasks[i].pos
