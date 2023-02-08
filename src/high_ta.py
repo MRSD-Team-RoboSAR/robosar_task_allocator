@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 import numpy as np
 import rospy
 import math
 import task_allocator.utils as utils
-from frontier_ta import FrontierAssignmentCommander, RobotInfo
+from naive_ta import NaiveAssignmentCommander, RobotInfo
 from generate_graph.gridmap import OccupancyGridMap
 from std_msgs.msg import Float32
 from task_allocator.CostCalculator import CostCalculator
@@ -13,12 +14,13 @@ from task_allocator.TA import *
 from task_transmitter.task_listener_robosar_control import TaskListenerRobosarControl
 from collections import deque
 from nav_msgs.msg import OccupancyGrid
+import matplotlib.pyplot as plt
 
 from robosar_messages.msg import *
 from robosar_messages.srv import *
 
 
-class HIGHAssignmentCommander(FrontierAssignmentCommander):
+class HIGHAssignmentCommander(NaiveAssignmentCommander):
     def __init__(self):
         super().__init__()
         self.fronters_info_gain = []
@@ -26,11 +28,13 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.tot_area = (self.geofence[1] - self.geofence[0]) * (
             self.geofence[3] - self.geofence[2]
         )
-        self.covered_area = 0.0
         self.area_explored_pub = rospy.Publisher("/percent_completed", Float32, queue_size=1)
         self.info_map_pub = rospy.Publisher("/information_map", OccupancyGrid, queue_size=1)
         self.downsample = 5
         self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
+        self.weight_arr = []
+        now = datetime.now()
+        self.area_metric_path = self.package_path + '/metrics/high/' + now.strftime("%d_%m_%Y_%H_%M_%S") + '.npy'
 
     def frontier_callback(self, msg):
         points = []
@@ -80,6 +84,19 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         self.env.update_tasks(
             self.frontiers, self.coverage_tasks, self.fronters_info_gain
         )
+        self.weight_arr.append([rospy.get_time()-self.start_time, self.env.exploration_weight])
+        arr = np.array(self.weight_arr)
+        time_arr = arr[:,0]
+        weight_arr = arr[:,1]
+        fig1 = plt.figure()
+        plt.plot(time_arr, weight_arr, '-r', label='frontier')
+        plt.plot(time_arr, 1-weight_arr, '-b', label='coverage')
+        plt.title('Frontier-Coverage Weights')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Weight')
+        plt.legend()
+        fig1.savefig('/home/rachelzheng/weights.png')
+        plt.close(fig1)
         return True
 
     def reassign(self, avail_robots, solver):
@@ -111,6 +128,7 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
         """
         # Get active agents
         self.get_active_agents()
+        self.start_time = rospy.get_time()
 
         # Get map
         (
@@ -257,6 +275,9 @@ class HIGHAssignmentCommander(FrontierAssignmentCommander):
                 pe = Float32()
                 pe.data = min(self.covered_area / self.tot_area, 1.0)
                 self.area_explored_pub.publish(pe)
+
+            if np.floor((rospy.get_time()-self.start_time)%10) == 0:
+                self.save_area_explored()
 
             print()
             self.rate.sleep()

@@ -59,10 +59,10 @@ class MissionCommander:
 
     def execute(self):
         rospy.logdebug("Executing")
-        if self.args.task_allocator == "frontier":
+        if self.args.task_allocator == "naive":
             self._tc_node = roslaunch.core.Node(
                 "robosar_task_allocator",
-                "frontier_ta.py",
+                "naive_ta.py",
                 name="task_commander",
                 output="screen",
             )
@@ -70,6 +70,13 @@ class MissionCommander:
             self._tc_node = roslaunch.core.Node(
                 "robosar_task_allocator",
                 "high_ta.py",
+                name="task_commander",
+                output="screen",
+            )
+        elif self.args.task_allocator == "frontier":
+            self._tc_node = roslaunch.core.Node(
+                "robosar_task_allocator",
+                "frontier_ta.py",
                 name="task_commander",
                 output="screen",
             )

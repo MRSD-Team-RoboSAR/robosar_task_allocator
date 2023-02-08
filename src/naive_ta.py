@@ -34,14 +34,13 @@ class RobotInfo:
         self.active = False
 
 
-class FrontierAssignmentCommander(TaskCommander):
+class NaiveAssignmentCommander(TaskCommander):
+    
     def __init__(self):
         super().__init__()
         self.reassign_period = rospy.get_param("~reassign_period", 30.0)
         self.utility_range = rospy.get_param("~utility_range", 1.5)
-        timer = rospy.Timer(
-            rospy.Duration(self.reassign_period), self.timer_flag_callback
-        )
+        timer = rospy.Timer(rospy.Duration(self.reassign_period), self.timer_flag_callback)
         self.rate = rospy.Rate(0.5)
         self.image_pub = rospy.Publisher("task_allocation_image", Image, queue_size=10)
         rospy.Subscriber(
@@ -60,16 +59,47 @@ class FrontierAssignmentCommander(TaskCommander):
         self.gmap = None  # type: OccupancyGridMap
         self.downsample = 2
         self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
-        self.n = 8
+        self.n = 5
         self.covered_area = 0.0
         self.area_metric = []
         now = datetime.now()
-        self.area_metric_path = (
-            self.package_path
-            + "/metrics/frontier/"
-            + now.strftime("%d_%m_%Y_%H_%M_%S")
-            + ".npy"
-        )
+        self.area_metric_path = self.package_path + '/metrics/naive/' + now.strftime("%d_%m_%Y_%H_%M_%S") + '.npy'
+
+    def task_graph_client(self):
+        task_ids = []
+        points = []
+        task_types = []
+        info_gains = []
+        # print("calling task graph getter service")
+        rospy.wait_for_service("/robosar_task_generator/task_graph_getter")
+        try:
+            task_graph_getter_service = rospy.ServiceProxy(
+                "/robosar_task_generator/task_graph_getter", task_graph_getter
+            )
+            resp1 = task_graph_getter_service()
+            task_ids = resp1.task_ids
+            points = resp1.points
+            task_types = resp1.task_types
+            info_gains = resp1.info_gains
+        except rospy.ServiceException as e:
+            print("task graph getter service call failed: %s" % e)
+
+        for i in range(len(task_ids)):
+            if task_types[i] == resp1.COVERAGE:
+                self.coverage_tasks[task_ids[i]] = [points[i].x, points[i].y]
+        return
+
+    def send_visited_to_task_graph(self):
+        visited_ids = self.env.get_visited_coverage_tasks()
+        # print("calling task graph setter service")
+        rospy.wait_for_service("/robosar_task_generator/task_graph_setter")
+        try:
+            task_graph_getter_service = rospy.ServiceProxy(
+                "/robosar_task_generator/task_graph_setter", task_graph_setter
+            )
+            task_graph_getter_service(visited_ids)
+        except rospy.ServiceException as e:
+            print("task graph getter service call failed: %s" % e)
 
     def timer_flag_callback(self, event=None):
         self.timer_flag = True
@@ -118,8 +148,8 @@ class FrontierAssignmentCommander(TaskCommander):
             print("RRT path service call failed: %s" % e)
 
     def save_area_explored(self):
-        self.area_metric.append([rospy.get_time() - self.start_time, self.covered_area])
-        with open(self.area_metric_path, "wb") as f:
+        self.area_metric.append([rospy.get_time()-self.start_time, self.covered_area])
+        with open(self.area_metric_path, 'wb') as f:
             np.save(f, np.array(self.area_metric))
 
     def prepare_costs(self, robot_id):
@@ -175,7 +205,10 @@ class FrontierAssignmentCommander(TaskCommander):
         if len(self.frontiers) == 0:
             got_frontiers = False
 
-        if not got_frontiers:
+        # get new coverage tasks
+        got_coverage = self.task_graph_client()
+
+        if not got_frontiers and not got_coverage:
             rospy.logwarn("no tasks received.")
             return False
 
@@ -214,8 +247,8 @@ class FrontierAssignmentCommander(TaskCommander):
 
         # get assignment
         goal = solver.assign(name)
-        self.robot_info_dict[name].curr = goal
         if goal is not None:
+            self.robot_info_dict[name].curr = goal
             # update utility
             self.env.update_utility(goal, self.cost_calculator.utility_discount_fn)
             task_type = 1
@@ -285,17 +318,9 @@ class FrontierAssignmentCommander(TaskCommander):
         if self.callback_triggered:
             self.get_active_agents()
             for agent, active in self.agent_active_status.items():
-                if (
-                    not active
-                    and agent in self.robot_info_dict
-                    and self.robot_info_dict[agent].active
-                ):
+                if not active and agent in self.robot_info_dict and self.robot_info_dict[agent].active:
                     rospy.logwarn("FLEET UPDATE: {} died".format(agent))
-                elif (
-                    active
-                    and agent in self.robot_info_dict
-                    and not self.robot_info_dict[agent].active
-                ):
+                elif active and agent in self.robot_info_dict and not self.robot_info_dict[agent].active:
                     rospy.logwarn("FLEET UPDATE: {} is back".format(agent))
                 elif active and agent not in self.robot_info_dict:
                     rospy.logwarn("FLEET UPDATE: new agent {}".format(agent))
@@ -366,6 +391,7 @@ class FrontierAssignmentCommander(TaskCommander):
         # 3. mtsp
         rospy.loginfo("Starting frontier task allocator")
 
+        self.task_graph_client()
         self.prepare_env()
         names = []
         starts = []
@@ -392,7 +418,7 @@ class FrontierAssignmentCommander(TaskCommander):
             # get frontiers
             if not self.prepare_env():
                 continue
-
+            
             curr_active_robots = []
             for name, active in self.agent_active_status.items():
                 if active:
@@ -406,6 +432,12 @@ class FrontierAssignmentCommander(TaskCommander):
                     agent_reached_flag = True
 
             if self.timer_flag or agent_reached_flag:
+                # get new coverage tasks
+                self.task_graph_client()
+
+                unvisited_coverage = self.env.get_unvisited_coverage_tasks_pos()
+                visited_coverage = self.env.get_visited_coverage_tasks_pos()
+
                 # reassign
                 names = []
                 starts = []
@@ -413,6 +445,13 @@ class FrontierAssignmentCommander(TaskCommander):
                 goal_types = []
                 goal_ids = []
                 for name in curr_active_robots:
+                    if (
+                        self.robot_info_dict[name].curr
+                        and self.robot_info_dict[name].curr.task_type == "coverage"
+                        and not agent_reached[name]
+                    ):
+                        self.env.update_utility(self.robot_info_dict[name].curr, self.cost_calculator.utility_discount_fn)
+                        continue
                     start, goal, goal_type, goal_id = self.reassign(name, solver)
                     if len(start) > 0:
                         names.append(name)
@@ -422,6 +461,7 @@ class FrontierAssignmentCommander(TaskCommander):
                         goal_ids.append(goal_id)
                         self.task_listener.setBusyStatus(name)
                     # print("{}: status {}".format(name, self.task_listener.getStatus(name)))
+                self.send_visited_to_task_graph()
                 self.timer_flag = False
 
                 if len(names) > 0:
@@ -431,6 +471,8 @@ class FrontierAssignmentCommander(TaskCommander):
                         goals,
                         goal_types,
                         goal_ids,
+                        unvisited_coverage,
+                        visited_coverage,
                     )
 
             self.save_area_explored()
@@ -442,7 +484,7 @@ if __name__ == "__main__":
     rospy.init_node("task_commander", anonymous=False, log_level=rospy.INFO)
 
     try:
-        tc = FrontierAssignmentCommander()
+        tc = NaiveAssignmentCommander()
         tc.execute()
     except rospy.ROSInterruptException:
         pass
