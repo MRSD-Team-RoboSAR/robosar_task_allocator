@@ -276,8 +276,7 @@ class HIGHAssignmentCommander(NaiveAssignmentCommander):
                 pe.data = min(self.covered_area / self.tot_area, 1.0)
                 self.area_explored_pub.publish(pe)
 
-            if np.floor((rospy.get_time()-self.start_time)%10) == 0:
-                self.save_area_explored()
+            self.save_area_explored()
 
             print()
             self.rate.sleep()
