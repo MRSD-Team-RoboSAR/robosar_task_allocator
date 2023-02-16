@@ -84,19 +84,19 @@ class HIGHAssignmentCommander(NaiveAssignmentCommander):
         self.env.update_tasks(
             self.frontiers, self.coverage_tasks, self.fronters_info_gain
         )
-        self.weight_arr.append([rospy.get_time()-self.start_time, self.env.exploration_weight])
-        arr = np.array(self.weight_arr)
-        time_arr = arr[:,0]
-        weight_arr = arr[:,1]
-        fig1 = plt.figure()
-        plt.plot(time_arr, weight_arr, '-r', label='frontier')
-        plt.plot(time_arr, 1-weight_arr, '-b', label='coverage')
-        plt.title('Frontier-Coverage Weights')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Weight')
-        plt.legend()
-        fig1.savefig('/home/rachelzheng/weights.png')
-        plt.close(fig1)
+        # self.weight_arr.append([rospy.get_time()-self.start_time, self.env.exploration_weight])
+        # arr = np.array(self.weight_arr)
+        # time_arr = arr[:,0]
+        # weight_arr = arr[:,1]
+        # fig1 = plt.figure()
+        # plt.plot(time_arr, weight_arr, '-r', label='frontier')
+        # plt.plot(time_arr, 1-weight_arr, '-b', label='coverage')
+        # plt.title('Frontier-Coverage Weights')
+        # plt.xlabel('Time [s]')
+        # plt.ylabel('Weight')
+        # plt.legend()
+        # fig1.savefig('/home/rachelzheng/weights.png')
+        # plt.close(fig1)
         return True
 
     def reassign(self, avail_robots, solver):
