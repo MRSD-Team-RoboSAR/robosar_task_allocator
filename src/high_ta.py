@@ -35,6 +35,12 @@ class HIGHAssignmentCommander(NaiveAssignmentCommander):
         self.weight_arr = []
         now = datetime.now()
         self.area_metric_path = self.package_path + '/metrics/high/' + now.strftime("%d_%m_%Y_%H_%M_%S") + '.npy'
+        self.coverage_metric_path = (
+            self.package_path
+            + "/coverage/high/"
+            + now.strftime("%d_%m_%Y_%H_%M_%S")
+            + ".npy"
+        )
 
     def frontier_callback(self, msg):
         points = []
@@ -73,7 +79,7 @@ class HIGHAssignmentCommander(NaiveAssignmentCommander):
         return True
 
     def calculate_e2_weights(self):
-        percent_explored = min(self.covered_area / float(self.tot_area), 1.0)
+        percent_explored = min(self.explored_area / float(self.tot_area), 1.0)
         explore_weight = min(1.1 - percent_explored, 1.0)
         return explore_weight
 
@@ -136,7 +142,8 @@ class HIGHAssignmentCommander(NaiveAssignmentCommander):
             self.map_data,
             self.scale,
             self.origin,
-            self.covered_area,
+            self.explored_area,
+            self.coverage_area
         ) = self.get_map_info()
 
         # Get frontiers
@@ -192,7 +199,7 @@ class HIGHAssignmentCommander(NaiveAssignmentCommander):
         if len(names) > 0:
             self.publish_visualize(names, starts, goals, goal_types, goal_ids)
             pe = Float32()
-            pe.data = min(self.covered_area / self.tot_area, 1.0)
+            pe.data = min(self.explored_area / self.tot_area, 1.0)
             self.area_explored_pub.publish(pe)
         self.timer_flag = False
 
@@ -273,7 +280,7 @@ class HIGHAssignmentCommander(NaiveAssignmentCommander):
                     visited_coverage,
                 )
                 pe = Float32()
-                pe.data = min(self.covered_area / self.tot_area, 1.0)
+                pe.data = min(self.explored_area / self.tot_area, 1.0)
                 self.area_explored_pub.publish(pe)
 
             self.save_area_explored()

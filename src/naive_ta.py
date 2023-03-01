@@ -60,10 +60,14 @@ class NaiveAssignmentCommander(TaskCommander):
         self.downsample = 2
         self.cost_calculator = CostCalculator(self.utility_range, self.downsample)
         self.n = 5
-        self.covered_area = 0.0
-        self.area_metric = []
         now = datetime.now()
         self.area_metric_path = self.package_path + '/metrics/naive/' + now.strftime("%d_%m_%Y_%H_%M_%S") + '.npy'
+        self.coverage_metric_path = (
+            self.package_path
+            + "/coverage/naive/"
+            + now.strftime("%d_%m_%Y_%H_%M_%S")
+            + ".npy"
+        )
 
     def task_graph_client(self):
         task_ids = []
@@ -148,9 +152,12 @@ class NaiveAssignmentCommander(TaskCommander):
             print("RRT path service call failed: %s" % e)
 
     def save_area_explored(self):
-        self.area_metric.append([rospy.get_time()-self.start_time, self.covered_area])
+        self.area_metric.append([rospy.get_time()-self.start_time, self.explored_area])
+        self.coverage_metric.append([rospy.get_time()-self.start_time, self.coverage_area])        
         with open(self.area_metric_path, 'wb') as f:
             np.save(f, np.array(self.area_metric))
+        with open(self.coverage_metric_path, 'wb') as f:
+            np.save(f, np.array(self.coverage_metric))
 
     def prepare_costs(self, robot_id):
         rp = self.robot_info_dict[robot_id].pos
@@ -218,7 +225,8 @@ class NaiveAssignmentCommander(TaskCommander):
             self.map_data,
             self.scale,
             self.origin,
-            self.covered_area,
+            self.explored_area,
+            self.coverage_area
         ) = self.get_map_info()
         robot_pos = self.get_agent_position()
         for r, rp in robot_pos.items():
@@ -338,7 +346,7 @@ class NaiveAssignmentCommander(TaskCommander):
         self.start_time = rospy.get_time()
 
         # Get map
-        self.map_msg, self.map_data, self.scale, self.origin, _ = self.get_map_info()
+        self.map_msg, self.map_data, self.scale, self.origin, _, _ = self.get_map_info()
 
         # Get frontiers
         rospy.loginfo("Waiting for frontiers")

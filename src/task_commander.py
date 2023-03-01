@@ -28,6 +28,10 @@ class TaskCommander(ABC):
             "task_allocation", task_allocation, queue_size=10
         )
         self.task_num_pub = rospy.Publisher("tasks_completed", Int32, queue_size=10)
+        self.explored_area = 0.0
+        self.coverage_area = 0.0
+        self.area_metric = []
+        self.coverage_metric = []
 
     def status_callback(self, msg):
         self.callback_triggered = True
@@ -58,6 +62,7 @@ class TaskCommander(ABC):
         Gets map message
         """
         rospy.logdebug("Waiting for map")
+        # exploration area
         map_msg = rospy.wait_for_message("/slam_toolbox/map", OccupancyGrid)
         rospy.logdebug("Map received")
         scale = map_msg.info.resolution
@@ -70,7 +75,16 @@ class TaskCommander(ABC):
                 free_space += 1
         area = free_space * (scale**2)
         rospy.logdebug("Map Area: {}".format(area))
-        return map_msg, data, scale, origin, area
+        # coverage area
+        map_coverage_msg = rospy.wait_for_message("/robosar_multi_coverage_node/coverage_map", OccupancyGrid)
+        cov_scale = map_coverage_msg.info.resolution
+        free_space = 0
+        for idx, cell_val in enumerate(map_coverage_msg.data):
+            if 0 <= cell_val:
+                free_space += 1
+        coverage_area = free_space * (cov_scale**2)
+        rospy.loginfo("Coverage Area: {}".format(coverage_area))
+        return map_msg, data, scale, origin, area, coverage_area
 
     def publish_image(self, image_pub):
         canvas = plt.gca().figure.canvas
